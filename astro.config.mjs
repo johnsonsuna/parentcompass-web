@@ -8,4 +8,7 @@ export default defineConfig({
   site: 'https://parentcompass.ai',
   adapter: vercel(),
   integrations: [tailwind(), sitemap(), react()],
+  security: {
+    checkOrigin: false,
+  },
 });
