@@ -1,0 +1,142 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+
+const updated = 'April 24, 2026';
+---
+
+<BaseLayout
+  title="Terms of Service — ParentCompass"
+  description="Terms governing your use of ParentCompass and our waitlist service."
+>
+  <Header />
+
+  <main class="bg-sand-50 min-h-screen">
+    <div class="max-w-3xl mx-auto px-6 py-20">
+
+      <p class="text-terra-500 text-xs font-sans font-bold uppercase tracking-widest mb-4">Legal</p>
+      <h1 class="text-4xl font-serif font-bold text-forest-800 mb-3">Terms of Service</h1>
+      <p class="text-stone-400 text-sm font-sans mb-12">Last updated: {updated}</p>
+
+      <div class="prose-legal">
+
+        <h2>1. Acceptance of terms</h2>
+        <p>
+          By accessing parentcompass.ai or joining our waitlist, you agree to these Terms of
+          Service. If you do not agree, please do not use our site or submit your email address.
+        </p>
+
+        <h2>2. What ParentCompass is</h2>
+        <p>
+          ParentCompass is a pre-launch AI-powered college counselling service. At this time, the
+          product is not available. The website exists to collect interest from families ahead of
+          our launch. No paid subscription, account, or service is offered through this website
+          at present.
+        </p>
+
+        <h2>3. Waitlist</h2>
+        <p>
+          By joining the waitlist, you are expressing interest in ParentCompass and consenting to
+          receive email updates about our launch and pricing. Joining the waitlist does not
+          guarantee access to the product, create a contract, or obligate ParentCompass to launch
+          by any particular date.
+        </p>
+        <p>
+          You may remove yourself from the waitlist at any time by clicking the unsubscribe link
+          in any email we send, or by contacting us at
+          <a href="mailto:hello@parentcompass.ai">hello@parentcompass.ai</a>.
+        </p>
+
+        <h2>4. Intellectual property</h2>
+        <p>
+          All content on parentcompass.ai — including text, graphics, logos, and design — is
+          owned by or licensed to ParentCompass. You may not reproduce, distribute, or create
+          derivative works from our content without written permission.
+        </p>
+
+        <h2>5. Disclaimer of warranties</h2>
+        <p>
+          This website is provided "as is" without warranties of any kind. ParentCompass makes no
+          representations about the accuracy or completeness of any content on this site.
+          Information about the planned product (features, pricing, launch date) is subject to
+          change without notice.
+        </p>
+
+        <h2>6. Limitation of liability</h2>
+        <p>
+          To the fullest extent permitted by law, ParentCompass shall not be liable for any
+          indirect, incidental, or consequential damages arising from your use of this website
+          or your participation in the waitlist.
+        </p>
+
+        <h2>7. Links to third-party sites</h2>
+        <p>
+          Our site may contain links to third-party websites. These links are provided for
+          convenience only. We have no control over the content of those sites and accept no
+          responsibility for them.
+        </p>
+
+        <h2>8. Changes to these terms</h2>
+        <p>
+          We may update these terms as the product evolves. We will notify waitlist members by
+          email of any material changes. Your continued use of the site after changes constitutes
+          acceptance of the updated terms.
+        </p>
+
+        <h2>9. Governing law</h2>
+        <p>
+          These terms are governed by the laws of the State of California, United States, without
+          regard to conflict of law principles.
+        </p>
+
+        <h2>10. Contact</h2>
+        <p>
+          Questions about these terms? Email us at
+          <a href="mailto:hello@parentcompass.ai">hello@parentcompass.ai</a>.
+        </p>
+
+      </div>
+    </div>
+  </main>
+
+  <Footer />
+</BaseLayout>
+
+<style>
+  .prose-legal h2 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1A3A2A;
+    margin-top: 2.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .prose-legal p {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-size: 0.9375rem;
+    color: #6B5F4E;
+    line-height: 1.75;
+    margin-bottom: 1rem;
+  }
+  .prose-legal ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .prose-legal li {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-size: 0.9375rem;
+    color: #6B5F4E;
+    line-height: 1.75;
+    margin-bottom: 0.25rem;
+  }
+  .prose-legal a {
+    color: #C4603A;
+    text-decoration: underline;
+  }
+  .prose-legal strong {
+    color: #4A3F32;
+    font-weight: 600;
+  }
+</style>
