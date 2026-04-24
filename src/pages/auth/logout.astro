@@ -2,8 +2,14 @@
 export const prerender = false;
 
 if (Astro.request.method === 'POST') {
-  await Astro.locals.supabase.auth.signOut();
-  return Astro.redirect('/');
+  const form = await Astro.request.formData();
+  const submittedToken = form.get('csrf')?.toString();
+  const cookieToken = Astro.cookies.get('csrf_logout')?.value;
+
+  if (submittedToken && cookieToken && submittedToken === cookieToken) {
+    Astro.cookies.delete('csrf_logout', { path: '/' });
+    await Astro.locals.supabase.auth.signOut();
+  }
 }
 
 return Astro.redirect('/');

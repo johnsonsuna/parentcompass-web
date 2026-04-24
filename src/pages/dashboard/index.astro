@@ -9,6 +9,14 @@ import type { RoadmapContent } from '../../lib/roadmap';
 
 const user = Astro.locals.user;
 
+const logoutCsrf = crypto.randomUUID();
+Astro.cookies.set('csrf_logout', logoutCsrf, {
+  httpOnly: true,
+  sameSite: 'strict',
+  path: '/',
+  maxAge: 3600,
+});
+
 const [{ data: profile }, { data: roadmapRow }] = await Promise.all([
   Astro.locals.supabase
     .from('profiles')
@@ -141,6 +149,7 @@ const currentTrack = roadmap?.grade_tracks[String(profile?.grade)];
       )}
 
       <form method="POST" action="/auth/logout" class="mt-10 text-center">
+        <input type="hidden" name="csrf" value={logoutCsrf} />
         <button type="submit" class="text-stone-400 text-sm font-sans hover:text-stone-600 transition-colors">
           Sign out
         </button>
