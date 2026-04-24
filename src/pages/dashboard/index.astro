@@ -4,20 +4,40 @@ export const prerender = false;
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Header from '../../components/Header.astro';
 import Footer from '../../components/Footer.astro';
+import RoadmapLoader from '../../components/RoadmapLoader';
+import type { RoadmapContent } from '../../lib/roadmap';
 
 const user = Astro.locals.user;
 
-const { data: profile } = await Astro.locals.supabase
-  .from('profiles')
-  .select('student_name, grade, school_type')
-  .eq('user_id', user?.id)
-  .maybeSingle();
+const logoutCsrf = crypto.randomUUID();
+Astro.cookies.set('csrf_logout', logoutCsrf, {
+  httpOnly: true,
+  sameSite: 'strict',
+  path: '/',
+  maxAge: 3600,
+});
+
+const [{ data: profile }, { data: roadmapRow }] = await Promise.all([
+  Astro.locals.supabase
+    .from('profiles')
+    .select('student_name, grade, school_type')
+    .eq('user_id', user?.id)
+    .maybeSingle(),
+  Astro.locals.supabase
+    .from('roadmaps')
+    .select('content')
+    .eq('user_id', user?.id)
+    .maybeSingle(),
+]);
 
 const gradeLabel: Record<number, string> = { 9: 'Freshman', 10: 'Sophomore', 11: 'Junior', 12: 'Senior' };
 const schoolLabel: Record<string, string> = {
   us: 'US High School',
   hybrid: 'Indian-American Hybrid',
 };
+
+const roadmap = roadmapRow?.content as RoadmapContent | null;
+const currentTrack = roadmap?.grade_tracks[String(profile?.grade)];
 ---
 
 <BaseLayout title="Dashboard — ParentCompass" description="Your college planning dashboard.">
@@ -37,26 +57,72 @@ const schoolLabel: Record<string, string> = {
             </p>
           </div>
 
-          <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <div class="bg-white border border-sand-200 rounded-2xl p-6">
-              <p class="text-terra-500 text-xs font-sans font-bold uppercase tracking-widest mb-3">Your Roadmap</p>
-              <p class="text-sm font-sans text-stone-500 leading-relaxed">
-                Your personalised Grade {profile.grade}–12 college planning roadmap is coming soon.
-              </p>
+          {roadmap ? (
+            <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <!-- Your Roadmap card -->
+              <div class="bg-white border border-sand-200 rounded-2xl p-6 lg:col-span-2">
+                <p class="text-terra-500 text-xs font-sans font-bold uppercase tracking-widest mb-3">Your Grade {profile.grade} Roadmap</p>
+                {currentTrack ? (
+                  <>
+                    <p class="text-forest-800 font-serif font-semibold text-lg mb-4">{currentTrack.focus}</p>
+                    <div class="mb-4">
+                      <p class="text-stone-500 text-xs font-sans font-semibold uppercase tracking-wide mb-2">Key Milestones</p>
+                      <ul class="space-y-2">
+                        {currentTrack.milestones.map((m) => (
+                          <li class="flex items-start gap-2 text-sm font-sans text-stone-600">
+                            <span class="mt-1 h-1.5 w-1.5 rounded-full bg-terra-400 flex-shrink-0" />
+                            {m}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    {currentTrack.hybrid_actions && currentTrack.hybrid_actions.length > 0 && (
+                      <div>
+                        <p class="text-stone-500 text-xs font-sans font-semibold uppercase tracking-wide mb-2">IIT / AIIMS Track</p>
+                        <ul class="space-y-2">
+                          {currentTrack.hybrid_actions.map((a) => (
+                            <li class="flex items-start gap-2 text-sm font-sans text-stone-600">
+                              <span class="mt-1 h-1.5 w-1.5 rounded-full bg-forest-400 flex-shrink-0" />
+                              {a}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p class="text-sm font-sans text-stone-400">Roadmap details loading…</p>
+                )}
+              </div>
+
+              <!-- This Month card -->
+              <div class="bg-white border border-sand-200 rounded-2xl p-6">
+                <p class="text-terra-500 text-xs font-sans font-bold uppercase tracking-widest mb-3">Start Now</p>
+                {roadmap.immediate_priorities.length > 0 ? (
+                  <ul class="space-y-3">
+                    {roadmap.immediate_priorities.map((p) => (
+                      <li class="flex items-start gap-2 text-sm font-sans text-stone-600">
+                        <span class="mt-1 h-1.5 w-1.5 rounded-full bg-terra-400 flex-shrink-0" />
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p class="text-sm font-sans text-stone-400">No priorities found.</p>
+                )}
+              </div>
+
+              <!-- Ask AI card -->
+              <div class="bg-white border border-sand-200 rounded-2xl p-6">
+                <p class="text-terra-500 text-xs font-sans font-bold uppercase tracking-widest mb-3">Ask AI</p>
+                <p class="text-sm font-sans text-stone-500 leading-relaxed">
+                  AI college counsellor chat coming in the next release.
+                </p>
+              </div>
             </div>
-            <div class="bg-white border border-sand-200 rounded-2xl p-6">
-              <p class="text-terra-500 text-xs font-sans font-bold uppercase tracking-widest mb-3">This Month</p>
-              <p class="text-sm font-sans text-stone-500 leading-relaxed">
-                Monthly action plans unlock once your roadmap is generated.
-              </p>
-            </div>
-            <div class="bg-white border border-sand-200 rounded-2xl p-6">
-              <p class="text-terra-500 text-xs font-sans font-bold uppercase tracking-widest mb-3">Ask AI</p>
-              <p class="text-sm font-sans text-stone-500 leading-relaxed">
-                AI college counsellor chat coming in the next release.
-              </p>
-            </div>
-          </div>
+          ) : (
+            <RoadmapLoader client:only="react" />
+          )}
         </>
       ) : (
         <>
@@ -83,6 +149,7 @@ const schoolLabel: Record<string, string> = {
       )}
 
       <form method="POST" action="/auth/logout" class="mt-10 text-center">
+        <input type="hidden" name="csrf" value={logoutCsrf} />
         <button type="submit" class="text-stone-400 text-sm font-sans hover:text-stone-600 transition-colors">
           Sign out
         </button>
