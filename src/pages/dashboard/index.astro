@@ -1,0 +1,43 @@
+---
+export const prerender = false;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+
+const user = Astro.locals.user;
+---
+
+<BaseLayout title="Dashboard — ParentCompass" description="Your college planning dashboard.">
+  <Header />
+  <main class="bg-sand-50 min-h-screen">
+    <div class="max-w-6xl mx-auto px-6 py-16">
+      <div class="mb-10">
+        <p class="text-terra-500 text-xs font-sans font-bold uppercase tracking-widest mb-2">Dashboard</p>
+        <h1 class="text-3xl font-serif font-bold text-forest-800">Welcome back</h1>
+        <p class="text-stone-500 text-sm font-sans mt-1">{user?.email}</p>
+      </div>
+
+      <div class="bg-white border border-sand-200 rounded-2xl p-10 text-center max-w-lg mx-auto">
+        <div class="text-4xl mb-4">🧭</div>
+        <h2 class="text-xl font-serif font-bold text-forest-800 mb-2">Your journey starts here</h2>
+        <p class="text-stone-500 text-sm font-sans leading-relaxed mb-6">
+          Complete your student profile to unlock your personalised Grade 9–12 college planning roadmap.
+        </p>
+        <a
+          href="/dashboard/profile"
+          class="inline-block bg-terra-500 text-white font-sans font-semibold px-7 py-3 rounded-lg hover:bg-terra-600 transition-colors"
+        >
+          Set Up Profile
+        </a>
+      </div>
+
+      <form method="POST" action="/auth/logout" class="mt-10 text-center">
+        <button type="submit" class="text-stone-400 text-sm font-sans hover:text-stone-600 transition-colors">
+          Sign out
+        </button>
+      </form>
+    </div>
+  </main>
+  <Footer />
+</BaseLayout>
