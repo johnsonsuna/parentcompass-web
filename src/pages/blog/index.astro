@@ -1,0 +1,49 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+
+const posts = (await getCollection('blog')).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+);
+---
+
+<BaseLayout
+  title="College Planning Guides — ParentCompass"
+  description="Year-by-year guides for parents navigating high school and college admissions — AP planning, SAT prep, college lists, and more."
+>
+  <Header />
+
+  <main class="bg-sand-50 min-h-screen">
+    <div class="max-w-4xl mx-auto px-6 py-20">
+
+      <p class="text-terra-500 text-xs font-sans font-bold uppercase tracking-widest mb-4">Resources</p>
+      <h1 class="text-4xl font-serif font-bold text-forest-800 mb-4">College Planning Guides</h1>
+      <p class="text-stone-500 text-base font-sans mb-16 max-w-xl leading-relaxed">
+        Practical, year-by-year guidance for families navigating high school and the college admissions process.
+      </p>
+
+      <div class="divide-y divide-sand-200">
+        {posts.map(post => (
+          <article class="py-10">
+            <a href={`/blog/${post.slug}`} class="group">
+              <h2 class="text-2xl font-serif font-bold text-forest-800 group-hover:text-terra-500 transition-colors mb-3 leading-snug">
+                {post.data.title}
+              </h2>
+              <p class="text-stone-500 text-base font-sans leading-relaxed mb-4 max-w-2xl">
+                {post.data.description}
+              </p>
+              <span class="text-terra-500 text-sm font-sans font-semibold group-hover:underline">
+                Read guide →
+              </span>
+            </a>
+          </article>
+        ))}
+      </div>
+
+    </div>
+  </main>
+
+  <Footer />
+</BaseLayout>

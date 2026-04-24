@@ -1,0 +1,145 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog');
+  return posts.map(post => ({
+    params: { slug: post.slug },
+    props: post,
+  }));
+}
+
+const post = Astro.props;
+const { Content } = await post.render();
+
+const siteUrl = 'https://parentcompass.ai';
+const canonicalUrl = `${siteUrl}/blog/${post.slug}`;
+
+const articleSchema = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: post.data.title,
+  description: post.data.description,
+  datePublished: post.data.pubDate.toISOString(),
+  dateModified: (post.data.updatedDate ?? post.data.pubDate).toISOString(),
+  publisher: {
+    '@type': 'Organization',
+    name: 'ParentCompass',
+    url: siteUrl,
+  },
+  mainEntityOfPage: {
+    '@type': 'WebPage',
+    '@id': canonicalUrl,
+  },
+});
+---
+
+<BaseLayout
+  title={`${post.data.title} — ParentCompass`}
+  description={post.data.description}
+  canonical={canonicalUrl}
+>
+  <Fragment slot="head">
+    <script type="application/ld+json" set:html={articleSchema} />
+  </Fragment>
+
+  <Header />
+
+  <main class="bg-sand-50 min-h-screen">
+    <div class="max-w-3xl mx-auto px-6 py-20">
+
+      <a href="/blog" class="text-terra-500 text-sm font-sans font-semibold hover:underline mb-8 inline-block">
+        ← All guides
+      </a>
+
+      <h1 class="text-4xl md:text-[2.75rem] font-serif font-bold text-forest-800 leading-tight mb-4">
+        {post.data.title}
+      </h1>
+      <p class="text-stone-400 text-sm font-sans mb-14">
+        {post.data.pubDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+      </p>
+
+      <div class="prose-article">
+        <Content />
+      </div>
+
+      <!-- Waitlist CTA -->
+      <div class="mt-16 bg-forest-800 rounded-2xl p-8 text-center">
+        <h2 class="text-2xl font-serif font-bold text-white mb-3">
+          Want a personalised plan for your student?
+        </h2>
+        <p class="text-forest-200 text-sm font-sans mb-6 leading-relaxed">
+          ParentCompass builds a year-by-year counselling plan from Grade 9 to college admission.<br />
+          Join the waitlist — free.
+        </p>
+        <a
+          href="/#waitlist"
+          class="inline-block bg-terra-500 text-white font-sans font-semibold px-8 py-3.5 rounded-lg hover:bg-terra-600 transition-colors"
+        >
+          Join the Waitlist
+        </a>
+      </div>
+
+    </div>
+  </main>
+
+  <Footer />
+</BaseLayout>
+
+<style>
+  .prose-article :global(h2) {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1A3A2A;
+    margin-top: 2.5rem;
+    margin-bottom: 0.75rem;
+    line-height: 1.3;
+  }
+  .prose-article :global(h3) {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #1A3A2A;
+    margin-top: 1.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .prose-article :global(p) {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-size: 1rem;
+    color: #6B5F4E;
+    line-height: 1.8;
+    margin-bottom: 1.25rem;
+  }
+  .prose-article :global(ul), .prose-article :global(ol) {
+    padding-left: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .prose-article :global(ul) { list-style: disc; }
+  .prose-article :global(ol) { list-style: decimal; }
+  .prose-article :global(li) {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-size: 1rem;
+    color: #6B5F4E;
+    line-height: 1.8;
+    margin-bottom: 0.25rem;
+  }
+  .prose-article :global(strong) {
+    color: #4A3F32;
+    font-weight: 600;
+  }
+  .prose-article :global(a) {
+    color: #C4603A;
+    text-decoration: underline;
+  }
+  .prose-article :global(blockquote) {
+    border-left: 3px solid #C4603A;
+    padding-left: 1.25rem;
+    margin: 1.5rem 0;
+    color: #8B7A6B;
+    font-style: italic;
+  }
+</style>
