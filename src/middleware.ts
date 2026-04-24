@@ -6,8 +6,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   let user = null;
   try {
-    const { data } = await supabase.auth.getUser();
-    user = data.user;
+    // getSession reads from cookies without a network round-trip to Supabase.
+    // getUser() makes an API call that can silently fail on Vercel, returning
+    // null even when a valid session is present in the request cookies.
+    const { data: { session } } = await supabase.auth.getSession();
+    user = session?.user ?? null;
   } catch {
     // no-op during static pre-render
   }
