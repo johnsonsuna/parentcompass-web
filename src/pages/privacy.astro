@@ -1,0 +1,159 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+
+const updated = 'April 24, 2026';
+---
+
+<BaseLayout
+  title="Privacy Policy — ParentCompass"
+  description="How ParentCompass collects, uses, and protects your personal information."
+>
+  <Header />
+
+  <main class="bg-sand-50 min-h-screen">
+    <div class="max-w-3xl mx-auto px-6 py-20">
+
+      <p class="text-terra-500 text-xs font-sans font-bold uppercase tracking-widest mb-4">Legal</p>
+      <h1 class="text-4xl font-serif font-bold text-forest-800 mb-3">Privacy Policy</h1>
+      <p class="text-stone-400 text-sm font-sans mb-12">Last updated: {updated}</p>
+
+      <div class="prose-legal">
+
+        <h2>1. Who we are</h2>
+        <p>
+          ParentCompass (<strong>parentcompass.ai</strong>) is an AI-powered college counselling service
+          for families. References to "we", "us", or "ParentCompass" in this policy refer to the
+          team operating parentcompass.ai. For privacy enquiries, contact us at
+          <a href="mailto:hello@parentcompass.ai">hello@parentcompass.ai</a>.
+        </p>
+
+        <h2>2. What data we collect</h2>
+        <p>At this stage, ParentCompass is a pre-launch product. We collect only:</p>
+        <ul>
+          <li><strong>Email address</strong> — when you join our waitlist via the form on our homepage.</li>
+        </ul>
+        <p>
+          We do not collect your name, phone number, payment information, or any other personal
+          data unless you provide it voluntarily by emailing us.
+        </p>
+
+        <h2>3. How we use your data</h2>
+        <p>Your email address is used solely to:</p>
+        <ul>
+          <li>Notify you when ParentCompass launches</li>
+          <li>Send you early-access information and founding-member pricing details</li>
+          <li>Occasionally share product updates relevant to ParentCompass</li>
+        </ul>
+        <p>We will never sell, rent, or share your email address with third parties for marketing purposes.</p>
+
+        <h2>4. Third-party services</h2>
+        <p>We use the following services to operate our waitlist:</p>
+        <ul>
+          <li>
+            <strong>MailerLite</strong> — our email service provider. Your email address is stored
+            on MailerLite's servers. MailerLite's privacy policy is available at
+            <a href="https://www.mailerlite.com/legal/privacy-policy" target="_blank" rel="noopener">mailerlite.com</a>.
+          </li>
+          <li>
+            <strong>Vercel</strong> — our website hosting provider. Vercel may collect standard
+            server logs (IP address, browser type) for security and performance purposes.
+            Vercel's privacy policy is available at
+            <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener">vercel.com</a>.
+          </li>
+        </ul>
+
+        <h2>5. Cookies</h2>
+        <p>
+          Our website does not use tracking cookies or advertising cookies. Vercel may set
+          technical cookies necessary for website delivery. We do not use cookies to track
+          you across other websites.
+        </p>
+
+        <h2>6. Your rights</h2>
+        <p>You have the right to:</p>
+        <ul>
+          <li><strong>Unsubscribe</strong> — click the unsubscribe link in any email we send you</li>
+          <li><strong>Access</strong> — request a copy of the data we hold about you</li>
+          <li><strong>Delete</strong> — request that we delete your email address from our list</li>
+        </ul>
+        <p>
+          To exercise any of these rights, email us at
+          <a href="mailto:hello@parentcompass.ai">hello@parentcompass.ai</a> and we will
+          respond within 7 days.
+        </p>
+
+        <h2>7. Data retention</h2>
+        <p>
+          We retain your email address on our waitlist until you unsubscribe or request deletion.
+          If ParentCompass does not launch within 24 months of you joining the waitlist, we will
+          delete all waitlist data.
+        </p>
+
+        <h2>8. Children's privacy</h2>
+        <p>
+          Our waitlist is intended for parents and adults aged 18 and over. We do not knowingly
+          collect personal data from children under 13. If you believe a child has submitted
+          their data to us, contact us at
+          <a href="mailto:hello@parentcompass.ai">hello@parentcompass.ai</a> and we will
+          delete it promptly.
+        </p>
+
+        <h2>9. Changes to this policy</h2>
+        <p>
+          We may update this policy as the product evolves. We will notify waitlist members by
+          email of any material changes. Continued use of our site after changes constitutes
+          acceptance of the updated policy.
+        </p>
+
+        <h2>10. Contact</h2>
+        <p>
+          Questions about this policy? Email us at
+          <a href="mailto:hello@parentcompass.ai">hello@parentcompass.ai</a>.
+        </p>
+
+      </div>
+    </div>
+  </main>
+
+  <Footer />
+</BaseLayout>
+
+<style>
+  .prose-legal h2 {
+    font-family: 'Fraunces', Georgia, serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1A3A2A;
+    margin-top: 2.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .prose-legal p {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-size: 0.9375rem;
+    color: #6B5F4E;
+    line-height: 1.75;
+    margin-bottom: 1rem;
+  }
+  .prose-legal ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .prose-legal li {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-size: 0.9375rem;
+    color: #6B5F4E;
+    line-height: 1.75;
+    margin-bottom: 0.25rem;
+  }
+  .prose-legal a {
+    color: #C4603A;
+    text-decoration: underline;
+  }
+  .prose-legal strong {
+    color: #4A3F32;
+    font-weight: 600;
+  }
+</style>
