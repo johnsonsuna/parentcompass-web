@@ -1,0 +1,168 @@
+---
+export const prerender = false;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Header from '../../components/Header.astro';
+import { validateProfileInput } from '../../lib/profile';
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/auth/login');
+
+// If profile already exists, skip setup
+const { data: existing } = await Astro.locals.supabase
+  .from('profiles')
+  .select('id')
+  .eq('user_id', user.id)
+  .maybeSingle();
+
+if (existing) return Astro.redirect('/dashboard');
+
+let error = '';
+let successRedirect = false;
+const csrfToken = crypto.randomUUID();
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const submittedToken = form.get('csrf')?.toString();
+  const cookieToken = Astro.cookies.get('csrf')?.value;
+
+  if (!submittedToken || submittedToken !== cookieToken) {
+    error = 'Invalid request. Please refresh and try again.';
+  } else {
+    const studentName = form.get('student_name')?.toString() ?? '';
+    const grade = Number(form.get('grade'));
+    const schoolType = form.get('school_type')?.toString() ?? '';
+
+    const validationError = validateProfileInput({ studentName, grade, schoolType });
+    if (validationError) {
+      error = validationError;
+    } else {
+      const { error: dbError } = await Astro.locals.supabase
+        .from('profiles')
+        .insert({ user_id: user.id, student_name: studentName, grade, school_type: schoolType });
+
+      if (dbError) {
+        error = 'Could not save profile. Please try again.';
+      } else {
+        Astro.cookies.delete('csrf', { path: '/' });
+        successRedirect = true;
+      }
+    }
+  }
+}
+
+Astro.cookies.set('csrf', csrfToken, {
+  httpOnly: true,
+  sameSite: 'strict',
+  path: '/',
+  maxAge: 600,
+});
+---
+
+<BaseLayout title="Set Up Profile — ParentCompass" description="Tell us about your student to personalise your college planning roadmap.">
+  <Header />
+  <main class="bg-sand-50 min-h-screen flex items-center justify-center px-6 py-20">
+    <div class="w-full max-w-lg">
+
+      {successRedirect ? (
+        <>
+          <div class="text-center">
+            <p class="text-stone-500 text-sm font-sans">Setting up your roadmap…</p>
+          </div>
+          <script>window.location.replace('/dashboard');</script>
+        </>
+      ) : (
+        <>
+          <div class="text-center mb-10">
+            <p class="text-terra-500 text-xs font-sans font-bold uppercase tracking-widest mb-2">Step 1 of 1</p>
+            <h1 class="text-3xl font-serif font-bold text-forest-800 mb-2">Tell us about your student</h1>
+            <p class="text-stone-500 text-sm font-sans">We'll build a personalised Grade 9–12 roadmap based on their starting point.</p>
+          </div>
+
+          {error && (
+            <div class="bg-red-50 border border-red-200 text-red-700 text-sm font-sans px-4 py-3 rounded-lg mb-6">
+              {error}
+            </div>
+          )}
+
+          <form method="POST" class="space-y-6 bg-white border border-sand-200 rounded-2xl p-8">
+            <input type="hidden" name="csrf" value={csrfToken} />
+
+            <div>
+              <label for="student_name" class="block text-sm font-sans font-semibold text-stone-600 mb-1.5">
+                Student's first name
+              </label>
+              <input
+                type="text"
+                id="student_name"
+                name="student_name"
+                required
+                maxlength="100"
+                class="w-full border border-sand-200 rounded-lg px-4 py-3 font-sans text-sm text-forest-800 focus:outline-none focus:border-forest-600 bg-white"
+                placeholder="e.g. Arjun"
+              />
+            </div>
+
+            <div>
+              <label for="grade" class="block text-sm font-sans font-semibold text-stone-600 mb-1.5">
+                Current grade
+              </label>
+              <select
+                id="grade"
+                name="grade"
+                required
+                class="w-full border border-sand-200 rounded-lg px-4 py-3 font-sans text-sm text-forest-800 focus:outline-none focus:border-forest-600 bg-white"
+              >
+                <option value="" disabled selected>Select grade</option>
+                <option value="9">Grade 9 — Freshman</option>
+                <option value="10">Grade 10 — Sophomore</option>
+                <option value="11">Grade 11 — Junior</option>
+                <option value="12">Grade 12 — Senior</option>
+              </select>
+            </div>
+
+            <div>
+              <fieldset>
+                <legend class="block text-sm font-sans font-semibold text-stone-600 mb-3">School type</legend>
+                <div class="space-y-3">
+                  <label class="flex items-start gap-3 cursor-pointer group">
+                    <input
+                      type="radio"
+                      name="school_type"
+                      value="us"
+                      required
+                      class="mt-0.5 accent-terra-500"
+                    />
+                    <span>
+                      <span class="block text-sm font-sans font-semibold text-forest-800">US High School</span>
+                      <span class="block text-xs font-sans text-stone-400 mt-0.5">Standard American curriculum — Common App, SAT/ACT, AP courses</span>
+                    </span>
+                  </label>
+                  <label class="flex items-start gap-3 cursor-pointer group">
+                    <input
+                      type="radio"
+                      name="school_type"
+                      value="hybrid"
+                      class="mt-0.5 accent-terra-500"
+                    />
+                    <span>
+                      <span class="block text-sm font-sans font-semibold text-forest-800">Indian-American Hybrid</span>
+                      <span class="block text-xs font-sans text-stone-400 mt-0.5">US high school + IIT/AIIMS backup path — we'll plan for both</span>
+                    </span>
+                  </label>
+                </div>
+              </fieldset>
+            </div>
+
+            <button
+              type="submit"
+              class="w-full bg-terra-500 text-white font-sans font-semibold py-3.5 rounded-lg hover:bg-terra-600 transition-colors"
+            >
+              Build My Roadmap
+            </button>
+          </form>
+        </>
+      )}
+    </div>
+  </main>
+</BaseLayout>
