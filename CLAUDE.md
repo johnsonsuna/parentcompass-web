@@ -1,1 +1,1 @@
-@/Users/johnsonsuna/eldhocompany/websites/parentcompass/CLAUDE.md
+@../eldhocompany/websites/parentcompass/CLAUDE.md
