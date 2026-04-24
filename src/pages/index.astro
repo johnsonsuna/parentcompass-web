@@ -27,19 +27,11 @@ import Footer from '../components/Footer.astro';
             ParentCompass is a year-by-year AI counsellor that grows with your student — from course
             selection in Grade 9 to the final college decision in Grade 12.
           </p>
-          <div class="flex flex-col sm:flex-row gap-3" id="waitlist">
-            <a
-              href="mailto:waitlist@parentcompass.ai?subject=Waitlist"
-              class="bg-terra-500 text-white font-sans font-semibold px-7 py-4 rounded-lg text-base hover:bg-terra-600 transition-colors text-center"
-            >
-              Join the Waitlist — Free
-            </a>
-            <a
-              href="#how-it-works"
-              class="border border-forest-200 text-forest-700 font-sans font-semibold px-7 py-4 rounded-lg text-base hover:bg-forest-50 transition-colors text-center"
-            >
-              See how it works
-            </a>
+          <div id="waitlist" class="max-w-md">
+            <div class="ml-embedded" data-form="gP7BDu"></div>
+            <p class="text-stone-400 text-xs font-sans mt-3">
+              Free to join · Founding-member pricing locked in at launch
+            </p>
           </div>
         </div>
 
@@ -344,7 +336,7 @@ import Footer from '../components/Footer.astro';
         Join the waitlist free. Founding-member pricing locked in when we launch.
       </p>
       <a
-        href="mailto:waitlist@parentcompass.ai?subject=Waitlist"
+        href="#waitlist"
         class="inline-block bg-white text-terra-600 font-sans font-bold px-10 py-4 rounded-lg text-base hover:bg-sand-100 transition-colors"
       >
         Join the Waitlist — Free

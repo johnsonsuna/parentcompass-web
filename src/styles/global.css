@@ -26,3 +26,71 @@
 details[open] .faq-icon {
   transform: rotate(45deg);
 }
+
+/* MailerLite embed — override default styles to match brand */
+.ml-form-embedWrapper {
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border: none !important;
+  width: 100% !important;
+}
+.ml-form-embedBody {
+  padding: 0 !important;
+}
+.ml-form-embedContent {
+  display: none !important;
+}
+.ml-form-fieldRow {
+  margin-bottom: 0.75rem !important;
+}
+.ml-form-fieldRow input[type="email"] {
+  width: 100% !important;
+  border: 1.5px solid #EDD9B8 !important;
+  border-radius: 0.5rem !important;
+  padding: 0.875rem 1rem !important;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
+  font-size: 1rem !important;
+  color: #1A1208 !important;
+  background: white !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+.ml-form-fieldRow input[type="email"]:focus {
+  border-color: #2D6A4F !important;
+}
+.ml-form-fieldRow input[type="email"]::placeholder {
+  color: #A89A8A !important;
+}
+.ml-form-embedSubmit button,
+button.ml-subscribe-button {
+  width: 100% !important;
+  background-color: #C4603A !important;
+  color: white !important;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 1rem !important;
+  border-radius: 0.5rem !important;
+  padding: 0.875rem 1.75rem !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s !important;
+}
+.ml-form-embedSubmit button:hover,
+button.ml-subscribe-button:hover {
+  background-color: #A84E2E !important;
+}
+.ml-form-successBody {
+  padding: 0 !important;
+}
+.ml-form-successContent h4 {
+  font-family: 'Fraunces', Georgia, serif !important;
+  color: #1A3A2A !important;
+  font-size: 1.25rem !important;
+}
+.ml-form-successContent p {
+  color: #8B7A6B !important;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
+  font-size: 0.875rem !important;
+}
