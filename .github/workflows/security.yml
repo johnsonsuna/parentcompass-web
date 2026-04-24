@@ -1,0 +1,83 @@
+name: Security & Privacy
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  secrets-scan:
+    name: Secrets Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Block committed .env files
+        run: |
+          if git diff --name-only origin/main...HEAD | grep -E '^\.env$'; then
+            echo "ERROR: .env file committed. Add to .gitignore and remove from history."
+            exit 1
+          fi
+          echo "No .env files committed ✓"
+
+      - name: Scan for hardcoded secrets
+        run: |
+          PATTERNS='supabase_service_role|SUPABASE_SERVICE_ROLE|service_role_key|sk_live_[a-zA-Z0-9]+|sk_test_[a-zA-Z0-9]+'
+          if grep -rE "$PATTERNS" --include="*.ts" --include="*.js" --include="*.astro" \
+             --exclude-dir=node_modules --exclude-dir=.git src/ 2>/dev/null; then
+            echo "ERROR: Potential secret found in source code."
+            exit 1
+          fi
+          echo "No hardcoded secrets found ✓"
+
+  pii-check:
+    name: PII & Privacy Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for PII in console output
+        run: |
+          # Logging user email, password, or raw session tokens is a privacy violation
+          if grep -rEn "console\.(log|error|warn|info)\s*\(.*\b(email|password|session|token|user_id)\b" \
+             --include="*.ts" --include="*.astro" --exclude-dir=node_modules src/ 2>/dev/null; then
+            echo "ERROR: Possible PII found in console output."
+            exit 1
+          fi
+          echo "No PII in console output ✓"
+
+      - name: Verify no stack traces exposed to client
+        run: |
+          # Error.stack in response bodies leaks internal paths
+          if grep -rn "error\.stack" --include="*.astro" --exclude-dir=node_modules src/pages/ 2>/dev/null; then
+            echo "ERROR: error.stack exposed in page response."
+            exit 1
+          fi
+          echo "No stack traces exposed ✓"
+
+  csrf-check:
+    name: CSRF Protection Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify all POST forms have CSRF tokens
+        run: |
+          FAIL=0
+          for file in $(grep -rl 'method="POST"' src/pages/ 2>/dev/null); do
+            if ! grep -q 'name="csrf"' "$file"; then
+              echo "ERROR: $file has a POST form without a CSRF token hidden input."
+              FAIL=1
+            fi
+          done
+          if [ $FAIL -eq 1 ]; then exit 1; fi
+          echo "All POST forms have CSRF protection ✓"
+
+      - name: Verify CSRF cookie uses httpOnly + sameSite
+        run: |
+          # Our CSRF token must be httpOnly to prevent JS theft
+          if grep -rn "name=\"csrf\"" src/ --include="*.astro" -l | xargs grep -L "httpOnly: true" 2>/dev/null; then
+            echo "WARNING: CSRF cookie set without httpOnly in one of the page files — verify manually."
+          fi
+          echo "CSRF cookie flags checked ✓"

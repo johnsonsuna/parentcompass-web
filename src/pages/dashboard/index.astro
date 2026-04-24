@@ -6,31 +6,81 @@ import Header from '../../components/Header.astro';
 import Footer from '../../components/Footer.astro';
 
 const user = Astro.locals.user;
+
+const { data: profile } = await Astro.locals.supabase
+  .from('profiles')
+  .select('student_name, grade, school_type')
+  .eq('user_id', user?.id)
+  .maybeSingle();
+
+const gradeLabel: Record<number, string> = { 9: 'Freshman', 10: 'Sophomore', 11: 'Junior', 12: 'Senior' };
+const schoolLabel: Record<string, string> = {
+  us: 'US High School',
+  hybrid: 'Indian-American Hybrid',
+};
 ---
 
 <BaseLayout title="Dashboard — ParentCompass" description="Your college planning dashboard.">
   <Header />
   <main class="bg-sand-50 min-h-screen">
     <div class="max-w-6xl mx-auto px-6 py-16">
-      <div class="mb-10">
-        <p class="text-terra-500 text-xs font-sans font-bold uppercase tracking-widest mb-2">Dashboard</p>
-        <h1 class="text-3xl font-serif font-bold text-forest-800">Welcome back</h1>
-        <p class="text-stone-500 text-sm font-sans mt-1">{user?.email}</p>
-      </div>
 
-      <div class="bg-white border border-sand-200 rounded-2xl p-10 text-center max-w-lg mx-auto">
-        <div class="text-4xl mb-4">🧭</div>
-        <h2 class="text-xl font-serif font-bold text-forest-800 mb-2">Your journey starts here</h2>
-        <p class="text-stone-500 text-sm font-sans leading-relaxed mb-6">
-          Complete your student profile to unlock your personalised Grade 9–12 college planning roadmap.
-        </p>
-        <a
-          href="/dashboard/profile"
-          class="inline-block bg-terra-500 text-white font-sans font-semibold px-7 py-3 rounded-lg hover:bg-terra-600 transition-colors"
-        >
-          Set Up Profile
-        </a>
-      </div>
+      {profile ? (
+        <>
+          <div class="mb-10">
+            <p class="text-terra-500 text-xs font-sans font-bold uppercase tracking-widest mb-2">Dashboard</p>
+            <h1 class="text-3xl font-serif font-bold text-forest-800">
+              Welcome back{profile.student_name ? `, ${profile.student_name}` : ''}
+            </h1>
+            <p class="text-stone-500 text-sm font-sans mt-1">
+              Grade {profile.grade} · {gradeLabel[profile.grade]} · {schoolLabel[profile.school_type] ?? profile.school_type}
+            </p>
+          </div>
+
+          <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="bg-white border border-sand-200 rounded-2xl p-6">
+              <p class="text-terra-500 text-xs font-sans font-bold uppercase tracking-widest mb-3">Your Roadmap</p>
+              <p class="text-sm font-sans text-stone-500 leading-relaxed">
+                Your personalised Grade {profile.grade}–12 college planning roadmap is coming soon.
+              </p>
+            </div>
+            <div class="bg-white border border-sand-200 rounded-2xl p-6">
+              <p class="text-terra-500 text-xs font-sans font-bold uppercase tracking-widest mb-3">This Month</p>
+              <p class="text-sm font-sans text-stone-500 leading-relaxed">
+                Monthly action plans unlock once your roadmap is generated.
+              </p>
+            </div>
+            <div class="bg-white border border-sand-200 rounded-2xl p-6">
+              <p class="text-terra-500 text-xs font-sans font-bold uppercase tracking-widest mb-3">Ask AI</p>
+              <p class="text-sm font-sans text-stone-500 leading-relaxed">
+                AI college counsellor chat coming in the next release.
+              </p>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div class="mb-10">
+            <p class="text-terra-500 text-xs font-sans font-bold uppercase tracking-widest mb-2">Dashboard</p>
+            <h1 class="text-3xl font-serif font-bold text-forest-800">Welcome back</h1>
+            <p class="text-stone-500 text-sm font-sans mt-1">{user?.email}</p>
+          </div>
+
+          <div class="bg-white border border-sand-200 rounded-2xl p-10 text-center max-w-lg mx-auto">
+            <div class="text-4xl mb-4">🧭</div>
+            <h2 class="text-xl font-serif font-bold text-forest-800 mb-2">Your journey starts here</h2>
+            <p class="text-stone-500 text-sm font-sans leading-relaxed mb-6">
+              Complete your student profile to unlock your personalised Grade 9–12 college planning roadmap.
+            </p>
+            <a
+              href="/dashboard/profile"
+              class="inline-block bg-terra-500 text-white font-sans font-semibold px-7 py-3 rounded-lg hover:bg-terra-600 transition-colors"
+            >
+              Set Up Profile
+            </a>
+          </div>
+        </>
+      )}
 
       <form method="POST" action="/auth/logout" class="mt-10 text-center">
         <button type="submit" class="text-stone-400 text-sm font-sans hover:text-stone-600 transition-colors">
