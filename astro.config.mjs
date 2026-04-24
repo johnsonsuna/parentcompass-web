@@ -5,7 +5,7 @@ import vercel from '@astrojs/vercel';
 
 export default defineConfig({
   site: 'https://parentcompass.ai',
-  adapter: vercel(),
+  adapter: vercel({ maxDuration: 60 }),
   integrations: [sitemap(), react()],
   // Astro's origin check blocks forms on Vercel/Cloudflare where Host headers
   // differ from the browser Origin. We replace it with per-form CSRF tokens
