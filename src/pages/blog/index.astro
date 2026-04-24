@@ -27,7 +27,7 @@ const posts = (await getCollection('blog')).sort(
       <div class="divide-y divide-sand-200">
         {posts.map(post => (
           <article class="py-10">
-            <a href={`/blog/${post.slug}`} class="group">
+            <a href={`/blog/${post.id.replace(/\.md$/, '')}`} class="group">
               <h2 class="text-2xl font-serif font-bold text-forest-800 group-hover:text-terra-500 transition-colors mb-3 leading-snug">
                 {post.data.title}
               </h2>

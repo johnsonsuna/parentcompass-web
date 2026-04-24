@@ -1,5 +1,5 @@
 ---
-import { getCollection } from 'astro:content';
+import { getCollection, render } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Header from '../../components/Header.astro';
 import Footer from '../../components/Footer.astro';
@@ -7,16 +7,17 @@ import Footer from '../../components/Footer.astro';
 export async function getStaticPaths() {
   const posts = await getCollection('blog');
   return posts.map(post => ({
-    params: { slug: post.slug },
+    params: { slug: post.id.replace(/\.md$/, '') },
     props: post,
   }));
 }
 
 const post = Astro.props;
-const { Content } = await post.render();
+const { Content } = await render(post);
 
 const siteUrl = 'https://parentcompass.ai';
-const canonicalUrl = `${siteUrl}/blog/${post.slug}`;
+const postSlug = post.id.replace(/\.md$/, '');
+const canonicalUrl = `${siteUrl}/blog/${postSlug}`;
 
 const articleSchema = JSON.stringify({
   '@context': 'https://schema.org',
