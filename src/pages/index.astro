@@ -27,13 +27,9 @@ import Footer from '../components/Footer.astro';
             ParentCompass is a year-by-year AI counsellor that grows with your student — from course
             selection in Grade 9 to the final college decision in Grade 12.
           </p>
-          <p class="text-stone-400 text-sm font-sans mb-8">
-            Human counsellors charge <span class="line-through text-stone-400">$3,000–$15,000</span>.
-            We charge <strong class="text-forest-800 font-semibold">$199/year</strong>.
-          </p>
           <div class="flex flex-col sm:flex-row gap-3" id="waitlist">
             <a
-              href="mailto:hello@parentcompass.ai?subject=Waitlist"
+              href="mailto:waitlist@parentcompass.ai?subject=Waitlist"
               class="bg-terra-500 text-white font-sans font-semibold px-7 py-4 rounded-lg text-base hover:bg-terra-600 transition-colors text-center"
             >
               Join the Waitlist — Free
@@ -244,10 +240,9 @@ import Footer from '../components/Footer.astro';
           </div>
           <p class="text-stone-500 font-sans text-xs font-bold uppercase tracking-widest mb-4">Family</p>
           <div class="flex items-end gap-1 mb-1">
-            <span class="text-5xl font-serif font-bold text-forest-800">$199</span>
-            <span class="text-stone-400 text-base font-sans mb-2">/year</span>
+            <span class="text-5xl font-serif font-bold text-forest-800">?</span>
           </div>
-          <p class="text-stone-400 text-sm font-sans mb-7">or $29/month · Up to 2 students</p>
+          <p class="text-stone-400 text-sm font-sans mb-7">Founding-member pricing for waitlist members · Up to 2 students</p>
           <ul class="space-y-3 text-sm font-sans text-stone-600 mb-8">
             {[
               'Full 4-year AI counsellor journey',
@@ -274,8 +269,7 @@ import Footer from '../components/Footer.astro';
         <div class="border border-sand-200 rounded-2xl p-8 bg-sand-50">
           <p class="text-stone-500 font-sans text-xs font-bold uppercase tracking-widest mb-4">Family Plus</p>
           <div class="flex items-end gap-1 mb-1">
-            <span class="text-5xl font-serif font-bold text-forest-800">$49</span>
-            <span class="text-stone-400 text-base font-sans mb-2">/month</span>
+            <span class="text-5xl font-serif font-bold text-forest-800">?</span>
           </div>
           <p class="text-stone-400 text-sm font-sans mb-7">Everything in Family, plus:</p>
           <ul class="space-y-3 text-sm font-sans text-stone-600 mb-8">
@@ -325,7 +319,7 @@ import Footer from '../components/Footer.astro';
           },
           {
             q: 'When does the product launch?',
-            a: 'We are building now and accepting waitlist signups. Waitlist members receive early access and founding-member pricing when we launch.',
+            a: 'We are building now and accepting waitlist signups. Waitlist members receive early access and founding-member pricing locked in before public launch.',
           },
         ].map(({ q, a }) => (
           <details class="py-6 cursor-pointer">
@@ -350,7 +344,7 @@ import Footer from '../components/Footer.astro';
         Join the waitlist free. Founding-member pricing locked in when we launch.
       </p>
       <a
-        href="mailto:hello@parentcompass.ai?subject=Waitlist"
+        href="mailto:waitlist@parentcompass.ai?subject=Waitlist"
         class="inline-block bg-white text-terra-600 font-sans font-bold px-10 py-4 rounded-lg text-base hover:bg-sand-100 transition-colors"
       >
         Join the Waitlist — Free
