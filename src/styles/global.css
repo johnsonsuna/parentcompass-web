@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: Inter, system-ui, sans-serif;
+    background-color: #faf8f5;
+    color: #1a1a1a;
+  }
+
+  h1, h2, h3 {
+    font-family: Georgia, Cambria, serif;
+  }
+}

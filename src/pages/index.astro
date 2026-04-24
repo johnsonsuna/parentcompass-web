@@ -1,0 +1,186 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<BaseLayout
+  title="ParentCompass — AI College Counsellor for Every Year of High School"
+  description="Year-by-year AI guidance from Grade 9 through college admission. Structured planning, essay prep, and real-time guidance — at a fraction of the cost of a human counsellor."
+>
+  <Header />
+
+  <!-- Hero -->
+  <section class="max-w-6xl mx-auto px-6 pt-20 pb-16 text-center">
+    <p class="text-gold-600 text-sm font-sans font-semibold tracking-widest uppercase mb-4">
+      Structured. Personal. Year by year.
+    </p>
+    <h1 class="text-5xl md:text-6xl font-serif font-bold text-navy-900 leading-tight max-w-4xl mx-auto">
+      Your child's college counsellor,<br />every year of high school.
+    </h1>
+    <p class="mt-6 text-xl text-gray-600 font-sans max-w-2xl mx-auto leading-relaxed">
+      ParentCompass guides your student from Grade 9 through college admission — personalized planning,
+      SAT/ACT prep, Common App strategy, and essay guidance, updated every year.
+    </p>
+    <div class="mt-4 text-base text-gray-500 font-sans">
+      IvyWise charges <span class="line-through">$15,000</span>. ParentCompass is <strong class="text-navy-800">$199/year</strong>.
+    </div>
+    <div class="mt-8 flex flex-col sm:flex-row gap-4 justify-center" id="waitlist">
+      <a
+        href="mailto:hello@parentcompass.ai?subject=Waitlist"
+        class="bg-navy-800 text-white font-sans font-semibold px-8 py-4 rounded-lg text-base hover:bg-navy-700 transition-colors"
+      >
+        Join the Waitlist — Free
+      </a>
+      <a
+        href="#how-it-works"
+        class="border border-navy-200 text-navy-800 font-sans font-semibold px-8 py-4 rounded-lg text-base hover:bg-navy-50 transition-colors"
+      >
+        See how it works
+      </a>
+    </div>
+  </section>
+
+  <!-- Price anchor bar -->
+  <section class="bg-navy-800 text-white py-6">
+    <div class="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-16 text-center text-sm font-sans">
+      <div><span class="text-gold-400 font-bold">IvyWise</span> — $15,000</div>
+      <div class="hidden sm:block text-navy-400">vs</div>
+      <div><span class="text-gold-400 font-bold">Private counsellors</span> — $3,000–$8,000</div>
+      <div class="hidden sm:block text-navy-400">vs</div>
+      <div><span class="text-gold-400 font-bold text-base">ParentCompass</span> — <span class="text-white font-bold text-base">$199/year</span></div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="max-w-6xl mx-auto px-6 py-20" id="how-it-works">
+    <h2 class="text-3xl font-serif font-bold text-navy-900 text-center mb-4">One counsellor. Four years.</h2>
+    <p class="text-gray-500 text-center text-base font-sans mb-14 max-w-xl mx-auto">
+      Your student's AI counsellor evolves each year, unlocking the right guidance at the right time.
+    </p>
+    <div class="grid md:grid-cols-4 gap-8">
+      {[
+        { grade: 'Grade 9', label: 'Foundation', desc: 'Course selection, GPA strategy, interest discovery, early extracurricular planning.' },
+        { grade: 'Grade 10', label: 'Direction', desc: 'PSAT prep, AP planning, summer programs, major exploration, first resume.' },
+        { grade: 'Grade 11', label: 'Execution', desc: 'SAT/ACT strategy, college list, campus visits, essay brainstorming, recommendation planning.' },
+        { grade: 'Grade 12', label: 'Application', desc: 'Common App, supplemental essays, FAFSA, early decision strategy, final college choice.' },
+      ].map(({ grade, label, desc }) => (
+        <div class="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+          <div class="text-gold-500 text-xs font-sans font-bold uppercase tracking-widest mb-2">{grade}</div>
+          <div class="text-navy-900 font-serif text-xl font-bold mb-3">{label}</div>
+          <p class="text-gray-500 text-sm font-sans leading-relaxed">{desc}</p>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section class="bg-white py-20" id="pricing">
+    <div class="max-w-4xl mx-auto px-6 text-center">
+      <h2 class="text-3xl font-serif font-bold text-navy-900 mb-4">Simple pricing</h2>
+      <p class="text-gray-500 text-base font-sans mb-12">One family plan. All four years. Cancel anytime.</p>
+      <div class="grid md:grid-cols-2 gap-6 text-left">
+        <div class="border-2 border-navy-800 rounded-2xl p-8">
+          <p class="text-navy-700 font-sans text-sm font-semibold uppercase tracking-wide mb-2">Family — Most Popular</p>
+          <div class="flex items-end gap-1 mb-1">
+            <span class="text-5xl font-serif font-bold text-navy-900">$199</span>
+            <span class="text-gray-400 text-base font-sans mb-2">/year</span>
+          </div>
+          <p class="text-gray-500 text-sm font-sans mb-6">or $29/month. Up to 2 students.</p>
+          <ul class="space-y-3 text-sm font-sans text-gray-700 mb-8">
+            {[
+              'Full 4-year AI counsellor journey',
+              'Year-by-year personalised action plans',
+              'Unlimited AI chat for student + parent',
+              'Parent dashboard — progress & milestones',
+              'SAT/ACT planning + college list builder',
+              'Common App essay brainstorming',
+            ].map(f => (
+              <li class="flex items-start gap-2">
+                <span class="text-gold-500 mt-0.5">✓</span> {f}
+              </li>
+            ))}
+          </ul>
+          <a href="#waitlist" class="block bg-navy-800 text-white text-center font-sans font-semibold py-3 rounded-lg hover:bg-navy-700 transition-colors">
+            Join the Waitlist
+          </a>
+        </div>
+        <div class="border border-gray-100 rounded-2xl p-8 bg-gray-50">
+          <p class="text-navy-700 font-sans text-sm font-semibold uppercase tracking-wide mb-2">Family Plus</p>
+          <div class="flex items-end gap-1 mb-1">
+            <span class="text-5xl font-serif font-bold text-navy-900">$49</span>
+            <span class="text-gray-400 text-base font-sans mb-2">/month</span>
+          </div>
+          <p class="text-gray-500 text-sm font-sans mb-6">Everything in Family, plus:</p>
+          <ul class="space-y-3 text-sm font-sans text-gray-700 mb-8">
+            {[
+              'Quarterly 30-min human counsellor call',
+              'Essay review with written feedback',
+              'Senior year application sprint support',
+              'Priority email support',
+            ].map(f => (
+              <li class="flex items-start gap-2">
+                <span class="text-gold-500 mt-0.5">✓</span> {f}
+              </li>
+            ))}
+          </ul>
+          <a href="#waitlist" class="block border border-navy-200 text-navy-800 text-center font-sans font-semibold py-3 rounded-lg hover:bg-navy-50 transition-colors">
+            Join the Waitlist
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="max-w-3xl mx-auto px-6 py-20" id="faq">
+    <h2 class="text-3xl font-serif font-bold text-navy-900 text-center mb-12">Frequently asked questions</h2>
+    <div class="space-y-8">
+      {[
+        {
+          q: 'Is this only for Indian-American families?',
+          a: 'No — ParentCompass works for any family navigating the American high school and college admissions process. We have deep experience with hybrid planning paths (US college + international options), but our core guidance works for all families.'
+        },
+        {
+          q: 'How is this different from ChatGPT?',
+          a: 'ChatGPT has no memory of your student, no year-by-year structure, and no milestone accountability. ParentCompass builds a persistent profile from Grade 9, unlocks grade-appropriate guidance year by year, and keeps both parent and student on track through every deadline.'
+        },
+        {
+          q: 'Can it help with SAT/ACT prep?',
+          a: 'Yes — ParentCompass generates a personalised SAT/ACT prep plan based on your student\'s target schools, current score, and timeline. We also recommend and affiliate with top prep providers when specialised tutoring is needed.'
+        },
+        {
+          q: 'Is the AI advice reliable?',
+          a: 'All factual content (Common App rules, AP syllabuses, FAFSA deadlines) is drawn from a curated knowledge base that is refreshed annually. We do not free-generate facts. For professional college admissions decisions, we always recommend consulting your school counsellor alongside our guidance.'
+        },
+        {
+          q: 'When does the product launch?',
+          a: 'We are currently building the product and accepting waitlist signups. Waitlist members will receive early access and founding-member pricing.'
+        },
+      ].map(({ q, a }) => (
+        <div class="border-b border-gray-100 pb-8">
+          <h3 class="text-navy-900 font-serif font-bold text-lg mb-3">{q}</h3>
+          <p class="text-gray-500 text-sm font-sans leading-relaxed">{a}</p>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <!-- Bottom CTA -->
+  <section class="bg-navy-800 text-white py-16 text-center">
+    <div class="max-w-2xl mx-auto px-6">
+      <h2 class="text-3xl font-serif font-bold mb-4">Start your child's plan today.</h2>
+      <p class="text-navy-200 text-base font-sans mb-8">
+        Join the waitlist — free. Be first to access founding-member pricing when we launch.
+      </p>
+      <a
+        href="mailto:hello@parentcompass.ai?subject=Waitlist"
+        class="inline-block bg-gold-500 text-navy-900 font-sans font-bold px-10 py-4 rounded-lg text-base hover:bg-gold-400 transition-colors"
+      >
+        Join the Waitlist — Free
+      </a>
+    </div>
+  </section>
+
+  <Footer />
+</BaseLayout>
