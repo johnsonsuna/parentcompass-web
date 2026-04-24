@@ -4,29 +4,46 @@ export const prerender = false;
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Header from '../../components/Header.astro';
 
-// Redirect already-authenticated users
 if (Astro.locals.user) {
   return Astro.redirect('/dashboard');
 }
 
 let error = '';
 
+// Generate CSRF token on GET, validate on POST
+const csrfToken = crypto.randomUUID();
+
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
-  const email = form.get('email')?.toString() ?? '';
-  const password = form.get('password')?.toString() ?? '';
+  const submittedToken = form.get('csrf')?.toString();
+  const cookieToken = Astro.cookies.get('csrf')?.value;
 
-  const { error: authError } = await Astro.locals.supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-
-  if (authError) {
-    error = authError.message;
+  if (!submittedToken || submittedToken !== cookieToken) {
+    error = 'Invalid request. Please refresh and try again.';
   } else {
-    return Astro.redirect('/dashboard');
+    const email = form.get('email')?.toString() ?? '';
+    const password = form.get('password')?.toString() ?? '';
+
+    const { error: authError } = await Astro.locals.supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (authError) {
+      error = authError.message;
+    } else {
+      Astro.cookies.delete('csrf', { path: '/' });
+      return Astro.redirect('/dashboard');
+    }
   }
 }
+
+Astro.cookies.set('csrf', csrfToken, {
+  httpOnly: true,
+  sameSite: 'strict',
+  path: '/',
+  maxAge: 600,
+});
 ---
 
 <BaseLayout title="Sign In — ParentCompass" description="Sign in to your ParentCompass account.">
@@ -46,6 +63,7 @@ if (Astro.request.method === 'POST') {
       )}
 
       <form method="POST" class="space-y-5">
+        <input type="hidden" name="csrf" value={csrfToken} />
         <div>
           <label for="email" class="block text-sm font-sans font-semibold text-stone-600 mb-1.5">Email</label>
           <input
