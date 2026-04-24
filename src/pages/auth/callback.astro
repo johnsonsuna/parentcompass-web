@@ -6,6 +6,11 @@ const code = Astro.url.searchParams.get('code');
 if (code) {
   await Astro.locals.supabase.auth.exchangeCodeForSession(code);
 }
-
-return Astro.redirect('/dashboard');
 ---
+
+<html>
+  <head><title>Signing in…</title></head>
+  <body>
+    <script>window.location.replace('/dashboard');</script>
+  </body>
+</html>
