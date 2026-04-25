@@ -99,18 +99,21 @@ export interface SectionResponse {
 }
 
 /**
- * Assert a raw DB row is a known SectionType and narrow it to the discriminated union.
- * Validates section_type at runtime — throws TypeError on unknown values (stale DB data,
- * schema drift). NOTE: responses shape is NOT validated; callers are responsible for
- * field-level validation before passing to AI synthesis or API responses.
- * Named "assert" to signal this is a type assertion, not a full structural validator.
+ * Assert a raw DB row has a known section_type and return it with the type narrowed.
+ * Throws TypeError on unknown section_type (stale DB data, schema drift).
+ *
+ * Return type is `SectionResponse & { section_type: SectionType }` — not the full
+ * SectionResponseData discriminated union — because responses shape is NOT validated here.
+ * Callers that need per-section typed responses (e.g. AI synthesis) must perform field-level
+ * validation against the specific union member after narrowing on section_type.
+ *
  * @see SectionResponseData for the per-section typed shapes.
  */
-export function assertSectionResponseData(r: SectionResponse): SectionResponseData {
+export function assertSectionResponseData(r: SectionResponse): SectionResponse & { section_type: SectionType } {
   if (!(SECTION_TYPES as readonly string[]).includes(r.section_type)) {
     throw new TypeError(`Unknown section_type: "${r.section_type}"`);
   }
-  return r as SectionResponseData;
+  return r as SectionResponse & { section_type: SectionType };
 }
 
 // ─── Roadmap versions ─────────────────────────────────────────────────────────

@@ -145,11 +145,14 @@ CREATE POLICY "Primary parent can update family members"
     )
   );
 
+-- type='parent' is excluded: deleting the primary parent's own member row while the families
+-- row persists would break all RLS subqueries that JOIN on type='parent', locking the account.
 DROP POLICY IF EXISTS "Primary parent can delete family members" ON public.family_members;
 CREATE POLICY "Primary parent can delete family members"
   ON public.family_members FOR DELETE
   USING (
-    EXISTS (
+    type != 'parent'
+    AND EXISTS (
       SELECT 1 FROM public.families
       WHERE id = family_id AND primary_user_id = auth.uid()
     )
@@ -277,7 +280,11 @@ CREATE TRIGGER section_responses_updated_at
   BEFORE UPDATE ON public.section_responses
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-GRANT SELECT, INSERT, UPDATE ON public.section_responses TO authenticated;
+-- UPDATE grant is column-level: family_id and member_id excluded to prevent row hijacking.
+-- A column-level UPDATE grant prevents a malicious client from moving a response to another
+-- family they own by changing family_id (which would satisfy WITH CHECK on the new row).
+GRANT SELECT, INSERT ON public.section_responses TO authenticated;
+GRANT UPDATE (section_type, responses) ON public.section_responses TO authenticated;
 
 -- ─────────────────────────────────────────────
 -- 4. roadmap_versions — immutable history, no DELETE policy.
@@ -317,8 +324,11 @@ DROP POLICY IF EXISTS "Primary parent can insert roadmap versions" ON public.roa
 -- Uses SECURITY DEFINER so the subquery bypasses RLS — without it, rows from other families are
 -- invisible under RLS, making the subquery return NULL, which silently rejects valid checks and
 -- allows probing other families' version IDs via NULL-vs-non-NULL timing differences.
+-- SET search_path = public prevents search_path hijacking: without it, a malicious user
+-- could create a schema earlier in the path with a spoofed roadmap_versions table,
+-- causing the integrity check to pass on attacker-controlled data.
 CREATE OR REPLACE FUNCTION public.check_roadmap_previous_version()
-  RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+  RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   IF NEW.previous_version_id IS NOT NULL THEN
     IF NOT EXISTS (
