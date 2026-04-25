@@ -13,7 +13,7 @@ export interface Family {
   updated_at: string;
 }
 
-// ─── Family members ──────────────────────────────────────────────────────────
+// ─── Family members ───────────────────────────────────────────────────────────
 
 export type MemberType = 'parent' | 'spouse' | 'student';
 export type MemberStatus = 'active' | 'pending' | 'declined';
@@ -24,12 +24,17 @@ export interface FamilyMember {
   type: MemberType;
   display_name: string;
   invite_email: string | null;
+  // invite_token is a server-only secret. Strip it from all client-facing API responses.
+  // Only return it once, at creation time, for embedding in the magic-link URL.
   invite_token: string | null;
   invite_expires_at: string | null;
   status: MemberStatus;
   grade: number | null;
   created_at: string;
 }
+
+// Safe client-facing projection of FamilyMember — omits invite_token.
+export type FamilyMemberPublic = Omit<FamilyMember, 'invite_token'>;
 
 // ─── Section responses ────────────────────────────────────────────────────────
 
@@ -44,14 +49,53 @@ export type SectionType =
   | 'student_career_curiosities'
   | 'student_academic_snapshot';
 
+// Per-section response shapes. Add one interface per section_type.
+// Used by the API validation layer and the AI synthesis prompt builder.
+export interface ParentGoalsResponse {
+  target_colleges?: string;
+  desired_outcome?: string;
+  timeline_pressure?: string;
+}
+
+export interface ParentConstraintsResponse {
+  budget_range?: string;
+  location_preferences?: string;
+  financial_aid_needed?: boolean;
+}
+
+export interface StudentInterestsResponse {
+  subjects?: string[];
+  activities?: string[];
+  career_curiosities?: string;
+}
+
+export interface StudentAnxietiesResponse {
+  biggest_concern?: string;
+  pressure_sources?: string[];
+}
+
+export interface SpousePrioritiesResponse {
+  priorities?: string;
+  alignment_notes?: string;
+}
+
+// Discriminated union mapping section_type → response shape
+export type SectionResponseData =
+  | { section_type: 'parent_goals'; responses: ParentGoalsResponse }
+  | { section_type: 'parent_constraints'; responses: ParentConstraintsResponse }
+  | { section_type: 'parent_expectations'; responses: Record<string, string> }
+  | { section_type: 'spouse_priorities'; responses: SpousePrioritiesResponse }
+  | { section_type: 'student_interests'; responses: StudentInterestsResponse }
+  | { section_type: 'student_anxieties'; responses: StudentAnxietiesResponse }
+  | { section_type: 'student_career_curiosities'; responses: Record<string, string> }
+  | { section_type: 'student_academic_snapshot'; responses: Record<string, string | number> };
+
 export interface SectionResponse {
   id: string;
   family_id: string;
   member_id: string;
   section_type: SectionType;
-  // Keyed by question slug → answer string or structured value.
-  // Shape is section-specific; validated at the API layer.
-  responses: Record<string, unknown>;
+  responses: Record<string, string | string[] | number | boolean>;
   updated_at: string;
 }
 
@@ -93,10 +137,12 @@ export interface RoadmapDiff {
 
 // ─── Composite view ───────────────────────────────────────────────────────────
 
-// Full family context passed to the AI roadmap generator in Phase 2D.4
+// Full family context passed to the AI roadmap generator in Phase 2D.4.
+// Built server-side using the Supabase service role (bypasses RLS to read
+// all member section_responses for AI synthesis).
 export interface FamilyContext {
   family: Family;
-  members: FamilyMember[];
+  members: FamilyMemberPublic[];
   responses: SectionResponse[];
   latestRoadmap: RoadmapVersion | null;
 }
