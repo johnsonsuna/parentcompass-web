@@ -1,5 +1,5 @@
-// Family domain types — mirrors the 003_families.sql schema.
-// These are used across Phase 2D API routes, UI components, and the AI roadmap generator.
+// Public family types — safe to import in any file including client components.
+// Does NOT include invite_token. For server-only types, see family.server.ts.
 
 export type FamilyPlan = 'family' | 'plus' | 'premium';
 export type FamilyTrack = 'us' | 'hybrid';
@@ -18,27 +18,22 @@ export interface Family {
 export type MemberType = 'parent' | 'spouse' | 'student';
 export type MemberStatus = 'active' | 'pending' | 'declined';
 
-export interface FamilyMember {
+// Safe client-facing type — mirrors the family_members_safe DB view.
+// invite_token is absent. Use this everywhere except invite creation.
+export interface FamilyMemberPublic {
   id: string;
   family_id: string;
   type: MemberType;
   display_name: string;
   invite_email: string | null;
-  // invite_token is a server-only secret. Strip it from all client-facing API responses.
-  // Only return it once, at creation time, for embedding in the magic-link URL.
-  invite_token: string | null;
   invite_expires_at: string | null;
   status: MemberStatus;
   grade: number | null;
   created_at: string;
 }
 
-// Safe client-facing projection of FamilyMember — omits invite_token.
-export type FamilyMemberPublic = Omit<FamilyMember, 'invite_token'>;
-
 // ─── Section responses ────────────────────────────────────────────────────────
 
-// V1 section types. Extensible — stored as TEXT in the DB.
 export type SectionType =
   | 'parent_goals'
   | 'parent_constraints'
@@ -49,8 +44,6 @@ export type SectionType =
   | 'student_career_curiosities'
   | 'student_academic_snapshot';
 
-// Per-section response shapes. Add one interface per section_type.
-// Used by the API validation layer and the AI synthesis prompt builder.
 export interface ParentGoalsResponse {
   target_colleges?: string;
   desired_outcome?: string;
@@ -79,7 +72,8 @@ export interface SpousePrioritiesResponse {
   alignment_notes?: string;
 }
 
-// Discriminated union mapping section_type → response shape
+// Discriminated union — maps section_type to its typed response shape.
+// Use this in API validation and the AI synthesis prompt builder.
 export type SectionResponseData =
   | { section_type: 'parent_goals'; responses: ParentGoalsResponse }
   | { section_type: 'parent_constraints'; responses: ParentConstraintsResponse }
@@ -114,7 +108,6 @@ export interface RoadmapVersion {
   created_at: string;
 }
 
-// Matches the existing roadmap content shape from 002_roadmaps.sql / lib/roadmap.ts
 export interface RoadmapContent {
   currentGrade: number;
   milestones: GradeMilestone[];
@@ -128,7 +121,6 @@ export interface GradeMilestone {
   actions: string[];
 }
 
-// Surface-level diff: which grades changed between versions
 export interface RoadmapDiff {
   changedGrades: number[];
   addedPriorities: string[];
@@ -137,9 +129,8 @@ export interface RoadmapDiff {
 
 // ─── Composite view ───────────────────────────────────────────────────────────
 
-// Full family context passed to the AI roadmap generator in Phase 2D.4.
-// Built server-side using the Supabase service role (bypasses RLS to read
-// all member section_responses for AI synthesis).
+// Full family context for the AI synthesis route (Phase 2D.4).
+// Built server-side using the Supabase service role. See family.server.ts.
 export interface FamilyContext {
   family: Family;
   members: FamilyMemberPublic[];
