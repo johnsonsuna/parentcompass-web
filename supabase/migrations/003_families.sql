@@ -155,11 +155,18 @@ CREATE POLICY "Primary parent can delete family members"
     )
   );
 
--- Column-level SELECT grant: authenticated role cannot SELECT invite_token.
--- INSERT/UPDATE/DELETE are table-level grants.
+-- Column-level grants: invite_token is excluded from SELECT, INSERT, and UPDATE.
+-- Column-level SELECT: excludes invite_token.
+-- Column-level INSERT: excludes invite_token, id (auto-generated), created_at (auto-set).
+-- Column-level UPDATE: excludes invite_token, id (immutable PK), family_id (immutable FK), created_at.
+-- DELETE is table-level (no sensitive column exposure on DELETE).
 GRANT SELECT (id, family_id, type, display_name, invite_email, invite_expires_at, status, grade, created_at)
   ON public.family_members TO authenticated;
-GRANT INSERT, UPDATE, DELETE ON public.family_members TO authenticated;
+GRANT INSERT (family_id, type, display_name, invite_email, status, grade)
+  ON public.family_members TO authenticated;
+GRANT UPDATE (type, display_name, invite_email, status, grade, invite_expires_at)
+  ON public.family_members TO authenticated;
+GRANT DELETE ON public.family_members TO authenticated;
 
 -- Security-barrier view: service_role-only internal alias excluding invite_token.
 -- PURPOSE: used by server-side code (e.g. invite resolution) that runs as service_role
@@ -188,7 +195,13 @@ CREATE TABLE IF NOT EXISTS public.section_responses (
   id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   family_id    UUID        NOT NULL REFERENCES public.families(id) ON DELETE CASCADE,
   member_id    UUID        NOT NULL REFERENCES public.family_members(id) ON DELETE CASCADE,
-  section_type TEXT        NOT NULL,
+  -- CHECK mirrors SECTION_TYPES in src/lib/types/family.ts — keep in sync on schema changes.
+  section_type TEXT        NOT NULL
+                           CHECK (section_type IN (
+                             'parent_goals', 'parent_constraints', 'parent_expectations',
+                             'spouse_priorities', 'student_interests', 'student_anxieties',
+                             'student_career_curiosities', 'student_academic_snapshot'
+                           )),
   responses    JSONB       NOT NULL DEFAULT '{}',
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (family_id, member_id, section_type)
@@ -294,21 +307,36 @@ CREATE POLICY "Primary parent can read own roadmap versions"
     )
   );
 
--- INSERT: verify family ownership AND that previous_version_id (if set) belongs to same family.
+-- No INSERT policy for authenticated: roadmap generation is a server-side AI operation (Phase 2D.4).
+-- Inserts happen via service_role in API routes only. Dropping any prior INSERT policy here.
 DROP POLICY IF EXISTS "Primary parent can insert roadmap versions" ON public.roadmap_versions;
-CREATE POLICY "Primary parent can insert roadmap versions"
-  ON public.roadmap_versions FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.families
-      WHERE id = family_id AND primary_user_id = auth.uid()
-    )
-    AND (
-      previous_version_id IS NULL
-      OR (SELECT family_id FROM public.roadmap_versions WHERE id = previous_version_id) = family_id
-    )
-  );
 
 -- No DELETE policy: roadmap versions are immutable history.
 
-GRANT SELECT, INSERT ON public.roadmap_versions TO authenticated;
+-- SECURITY DEFINER trigger: validates previous_version_id cross-family integrity on every INSERT.
+-- Uses SECURITY DEFINER so the subquery bypasses RLS — without it, rows from other families are
+-- invisible under RLS, making the subquery return NULL, which silently rejects valid checks and
+-- allows probing other families' version IDs via NULL-vs-non-NULL timing differences.
+CREATE OR REPLACE FUNCTION public.check_roadmap_previous_version()
+  RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  IF NEW.previous_version_id IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM public.roadmap_versions
+      WHERE id = NEW.previous_version_id AND family_id = NEW.family_id
+    ) THEN
+      RAISE EXCEPTION 'previous_version_id % does not belong to family %',
+        NEW.previous_version_id, NEW.family_id;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS roadmap_versions_check_previous ON public.roadmap_versions;
+CREATE TRIGGER roadmap_versions_check_previous
+  BEFORE INSERT ON public.roadmap_versions
+  FOR EACH ROW EXECUTE FUNCTION public.check_roadmap_previous_version();
+
+-- SELECT only: authenticated clients may read roadmap versions but not insert them.
+GRANT SELECT ON public.roadmap_versions TO authenticated;

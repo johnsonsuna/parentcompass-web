@@ -92,19 +92,21 @@ export interface SectionResponse {
   family_id: string;
   member_id: string;
   section_type: SectionType;
-  // Loose type intentional for raw DB reads. Use asSectionResponseData() for
+  // Loose type intentional for raw DB reads. Use assertSectionResponseData() for
   // type-safe discriminated access in API validation and AI synthesis.
   responses: Record<string, string | string[] | number | boolean>;
   updated_at: string;
 }
 
 /**
- * Validate and narrow a raw DB row to the discriminated union.
- * Throws if section_type is not a known SectionType — guards against stale DB data
- * or schema drift reaching AI synthesis and API validation paths.
+ * Assert a raw DB row is a known SectionType and narrow it to the discriminated union.
+ * Validates section_type at runtime — throws TypeError on unknown values (stale DB data,
+ * schema drift). NOTE: responses shape is NOT validated; callers are responsible for
+ * field-level validation before passing to AI synthesis or API responses.
+ * Named "assert" to signal this is a type assertion, not a full structural validator.
  * @see SectionResponseData for the per-section typed shapes.
  */
-export function asSectionResponseData(r: SectionResponse): SectionResponseData {
+export function assertSectionResponseData(r: SectionResponse): SectionResponseData {
   if (!(SECTION_TYPES as readonly string[]).includes(r.section_type)) {
     throw new TypeError(`Unknown section_type: "${r.section_type}"`);
   }
