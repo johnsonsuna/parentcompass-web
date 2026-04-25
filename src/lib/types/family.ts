@@ -89,6 +89,8 @@ export interface SectionResponse {
   family_id: string;
   member_id: string;
   section_type: SectionType;
+  // Loose type intentional for raw DB reads. Use SectionResponseData discriminated
+  // union for type-safe access in API validation and AI synthesis prompt building.
   responses: Record<string, string | string[] | number | boolean>;
   updated_at: string;
 }

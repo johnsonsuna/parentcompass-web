@@ -2,10 +2,13 @@
 -- Phase 2D.1 — creates families, family_members, section_responses, roadmap_versions
 -- Run in Supabase SQL editor: supabase.com/dashboard/project/izezbdvrqzzerkukmyoy/sql
 
+-- Schema-level usage grant — placed once at the top.
+-- Grants schema visibility only; does NOT imply any table access.
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+
 -- ─────────────────────────────────────────────
 -- Shared trigger function: auto-updates updated_at columns.
--- CREATE OR REPLACE is intentional — safe to re-run, updates the function if
--- the body changes in a future migration. Does not affect dependent triggers.
+-- CREATE OR REPLACE is intentional — safe to re-run, idempotent by design.
 -- ─────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.set_updated_at()
   RETURNS TRIGGER LANGUAGE plpgsql AS $$
@@ -17,7 +20,6 @@ $$;
 
 -- ─────────────────────────────────────────────
 -- 1. families
---    One row per account. Owned by the primary parent (the Supabase auth user who signed up).
 -- ─────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.families (
   id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -44,15 +46,15 @@ CREATE POLICY "Primary parent can insert own family"
   ON public.families FOR INSERT
   WITH CHECK (auth.uid() = primary_user_id);
 
+-- WITH CHECK prevents changing primary_user_id to another user's uid (family hijacking).
 CREATE POLICY "Primary parent can update own family"
   ON public.families FOR UPDATE
-  USING (auth.uid() = primary_user_id);
+  USING (auth.uid() = primary_user_id)
+  WITH CHECK (auth.uid() = primary_user_id);
 
 -- No DELETE policy: family deletion is handled server-side via the auth.users cascade.
--- Direct client-side DELETE on families is intentionally blocked.
 
 GRANT SELECT, INSERT, UPDATE ON public.families TO authenticated;
-GRANT USAGE ON SCHEMA public TO anon, authenticated;
 
 CREATE TRIGGER families_updated_at
   BEFORE UPDATE ON public.families
@@ -60,9 +62,6 @@ CREATE TRIGGER families_updated_at
 
 -- ─────────────────────────────────────────────
 -- 2. family_members
---    Primary parent + invited spouse/students.
---    Invitees do NOT get their own Supabase auth users (avoids COPPA for under-13).
---    They are identified by invite_token embedded in a magic-link URL.
 -- ─────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.family_members (
   id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -70,20 +69,22 @@ CREATE TABLE IF NOT EXISTS public.family_members (
   type              TEXT        NOT NULL CHECK (type IN ('parent', 'spouse', 'student')),
   display_name      TEXT        NOT NULL,
   invite_email      TEXT,
-  -- invite_token: server-only secret. Never expose in client-facing responses.
-  -- Minimum 32 characters enforced at DB level; generate with crypto.randomBytes(32).
-  invite_token      TEXT        UNIQUE CHECK (invite_token IS NULL OR length(invite_token) >= 32),
-  invite_expires_at TIMESTAMPTZ,
-  -- Enforce: a pending member (has invite_token) must have an expiry set.
-  CONSTRAINT invite_token_requires_expiry
-    CHECK (invite_token IS NULL OR invite_expires_at IS NOT NULL),
-  -- Enforce: the primary parent member is always active with no invite.
-  CONSTRAINT parent_type_always_active
-    CHECK (type != 'parent' OR (invite_token IS NULL AND status = 'active')),
   status            TEXT        NOT NULL DEFAULT 'active'
                                 CHECK (status IN ('active', 'pending', 'declined')),
-  -- grade: US high school grades (9-12) only. NULL for parent/spouse and students
-  -- outside 9-12 (capture via section_responses instead).
+  -- invite_token: server-only secret. Min 32 chars enforced at DB level.
+  -- Never expose in client responses — authenticated role has no SELECT grant
+  -- on this column. Use family_members_safe view for client-facing queries.
+  invite_token      TEXT        UNIQUE
+                                CHECK (invite_token IS NULL OR length(invite_token) >= 32),
+  invite_expires_at TIMESTAMPTZ,
+  -- Pending members (with invite_token) must have an expiry set.
+  CONSTRAINT invite_token_requires_expiry
+    CHECK (invite_token IS NULL OR invite_expires_at IS NOT NULL),
+  -- Primary parent member is always active with no invite.
+  -- status is declared above so this constraint is valid.
+  CONSTRAINT parent_type_always_active
+    CHECK (type != 'parent' OR (invite_token IS NULL AND status = 'active')),
+  -- grade: US high school grades (9-12). NULL for parent/spouse and non-US-track students.
   grade             SMALLINT    CHECK (grade BETWEEN 9 AND 12),
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -93,9 +94,6 @@ CREATE INDEX IF NOT EXISTS idx_family_members_family_id
 
 ALTER TABLE public.family_members ENABLE ROW LEVEL SECURITY;
 
--- RLS on base table: primary parent may read all member rows (including invite_token)
--- for server-side invite management. Client-facing responses MUST use the
--- family_members_safe view below, which excludes invite_token.
 CREATE POLICY "Primary parent can read own family members"
   ON public.family_members FOR SELECT
   USING (
@@ -132,10 +130,14 @@ CREATE POLICY "Primary parent can delete family members"
     )
   );
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.family_members TO authenticated;
+-- Column-level SELECT grant: excludes invite_token. authenticated can read all
+-- columns except invite_token. INSERT/UPDATE/DELETE on the base table are table-level.
+GRANT SELECT (id, family_id, type, display_name, invite_email, invite_expires_at, status, grade, created_at)
+  ON public.family_members TO authenticated;
+GRANT INSERT, UPDATE, DELETE ON public.family_members TO authenticated;
 
--- Security-barrier view: safe for client-facing SELECT responses.
--- Excludes invite_token — API routes that list family members must SELECT from this view.
+-- Security-barrier view: convenient alias for client-facing queries.
+-- Mirrors the column-level grant above; use this in all API SELECT queries.
 CREATE VIEW public.family_members_safe WITH (security_barrier = true) AS
   SELECT id, family_id, type, display_name, invite_email,
          invite_expires_at, status, grade, created_at
@@ -145,11 +147,9 @@ GRANT SELECT ON public.family_members_safe TO authenticated;
 
 -- ─────────────────────────────────────────────
 -- 3. section_responses
---    Each member's answers to their assigned input sections.
 --    PRIVACY MODEL (Rule 11): Raw inputs are private to the contributor.
---    - Primary parent reads only their own (type='parent') responses via the client API.
---    - Spouse/student responses are read server-side (service role) for AI synthesis only.
---    - The AI synthesises all inputs; only the synthesised roadmap is returned to the client.
+--    Primary parent reads only their own responses via the client API.
+--    Spouse/student responses are read server-side (service role) for AI synthesis.
 -- ─────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.section_responses (
   id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -166,17 +166,17 @@ CREATE INDEX IF NOT EXISTS idx_section_responses_family_member
 
 ALTER TABLE public.section_responses ENABLE ROW LEVEL SECURITY;
 
--- Parent reads only their own section responses. Spouse/student responses
--- require the Supabase service role (implemented in Phase 2D.4 AI synthesis route).
+-- Parent reads only their own (type='parent') responses.
+-- Uses family_members_safe view so invite_token is never visible in the subquery.
 CREATE POLICY "Members can read own section responses"
   ON public.section_responses FOR SELECT
   USING (
     EXISTS (
-      SELECT 1 FROM public.family_members fm
-      JOIN public.families f ON f.id = fm.family_id
-      WHERE fm.id = member_id
+      SELECT 1 FROM public.family_members_safe fms
+      JOIN public.families f ON f.id = fms.family_id
+      WHERE fms.id = member_id
         AND f.primary_user_id = auth.uid()
-        AND fm.type = 'parent'
+        AND fms.type = 'parent'
     )
   );
 
@@ -205,9 +205,7 @@ CREATE TRIGGER section_responses_updated_at
 GRANT SELECT, INSERT, UPDATE ON public.section_responses TO authenticated;
 
 -- ─────────────────────────────────────────────
--- 4. roadmap_versions
---    Immutable history of every roadmap regeneration.
---    version is unique per family. No DELETE policy — versions are permanent history.
+-- 4. roadmap_versions — immutable history, no DELETE policy.
 -- ─────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.roadmap_versions (
   id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
