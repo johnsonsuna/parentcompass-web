@@ -31,4 +31,18 @@ describe('asSectionResponseData', () => {
     const typed = asSectionResponseData(row);
     expect(typed).toBe(row);
   });
+
+  it('throws on unknown section_type from stale DB data', () => {
+    const row = {
+      id: 'r3',
+      family_id: 'f1',
+      member_id: 'm3',
+      section_type: 'unknown_section' as never,
+      responses: {},
+      updated_at: '2026-04-25T00:00:00Z',
+    } as SectionResponse;
+
+    expect(() => asSectionResponseData(row)).toThrow(TypeError);
+    expect(() => asSectionResponseData(row)).toThrow('Unknown section_type: "unknown_section"');
+  });
 });

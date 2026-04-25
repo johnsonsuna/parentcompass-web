@@ -34,15 +34,18 @@ export interface FamilyMemberPublic {
 
 // ─── Section responses ────────────────────────────────────────────────────────
 
-export type SectionType =
-  | 'parent_goals'
-  | 'parent_constraints'
-  | 'parent_expectations'
-  | 'spouse_priorities'
-  | 'student_interests'
-  | 'student_anxieties'
-  | 'student_career_curiosities'
-  | 'student_academic_snapshot';
+export const SECTION_TYPES = [
+  'parent_goals',
+  'parent_constraints',
+  'parent_expectations',
+  'spouse_priorities',
+  'student_interests',
+  'student_anxieties',
+  'student_career_curiosities',
+  'student_academic_snapshot',
+] as const;
+
+export type SectionType = typeof SECTION_TYPES[number];
 
 export interface ParentGoalsResponse {
   target_colleges?: string;
@@ -96,11 +99,16 @@ export interface SectionResponse {
 }
 
 /**
- * Cast a raw DB row to the discriminated union for type-safe field access.
+ * Validate and narrow a raw DB row to the discriminated union.
+ * Throws if section_type is not a known SectionType — guards against stale DB data
+ * or schema drift reaching AI synthesis and API validation paths.
  * @see SectionResponseData for the per-section typed shapes.
  */
 export function asSectionResponseData(r: SectionResponse): SectionResponseData {
-  return r as unknown as SectionResponseData;
+  if (!(SECTION_TYPES as readonly string[]).includes(r.section_type)) {
+    throw new TypeError(`Unknown section_type: "${r.section_type}"`);
+  }
+  return r as SectionResponseData;
 }
 
 // ─── Roadmap versions ─────────────────────────────────────────────────────────

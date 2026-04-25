@@ -161,14 +161,19 @@ GRANT SELECT (id, family_id, type, display_name, invite_email, invite_expires_at
   ON public.family_members TO authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.family_members TO authenticated;
 
--- Security-barrier view: service_role-only alias excluding invite_token.
--- Client queries use the column-level grant on the base table above.
+-- Security-barrier view: service_role-only internal alias excluding invite_token.
+-- PURPOSE: used by server-side code (e.g. invite resolution) that runs as service_role
+--          and needs a guaranteed invite_token-free projection without relying on column grants.
+-- CLIENT ACCESS: authenticated clients query the base table directly via the column-level
+--                SELECT grant above — this view is NOT accessible to authenticated users.
+-- TypeScript: FamilyMemberPublic in family.ts mirrors this projection; it is populated from
+--             the base table column-level grant, not from this view.
 CREATE OR REPLACE VIEW public.family_members_safe WITH (security_barrier = true) AS
   SELECT id, family_id, type, display_name, invite_email,
          invite_expires_at, status, grade, created_at
   FROM public.family_members;
 
--- Explicitly restrict access: this view is service_role only.
+-- Restrict access: service_role only. authenticated and PUBLIC have no access to this view.
 REVOKE ALL ON public.family_members_safe FROM PUBLIC;
 REVOKE ALL ON public.family_members_safe FROM authenticated;
 GRANT SELECT ON public.family_members_safe TO service_role;
@@ -211,37 +216,48 @@ CREATE POLICY "Primary parent can read own section responses"
     )
   );
 
--- INSERT: verify both family ownership AND that member_id belongs to this family.
+-- INSERT: verify family ownership AND that member_id is the parent-type member for this family.
+-- Rule 11: primary parent may only write their own (type='parent') section responses via client API.
+-- Spouse/student responses are written server-side (service role) — not through this policy.
 DROP POLICY IF EXISTS "Primary parent can insert section responses" ON public.section_responses;
 CREATE POLICY "Primary parent can insert section responses"
   ON public.section_responses FOR INSERT
   WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.families
-      WHERE id = family_id AND primary_user_id = auth.uid()
-    )
-    AND EXISTS (
-      SELECT 1 FROM public.family_members
-      WHERE id = member_id AND family_id = section_responses.family_id
+    member_id IN (
+      SELECT fm.id FROM public.family_members fm
+      JOIN public.families f ON f.id = fm.family_id
+      WHERE fm.family_id = section_responses.family_id
+        AND fm.type = 'parent'
+        AND f.primary_user_id = auth.uid()
     )
   );
 
--- UPDATE: WITH CHECK prevents reassigning family_id to a different family.
+-- UPDATE: scope to parent-type member only, consistent with SELECT and INSERT.
+-- WITH CHECK also restricts to parent member so family_id cannot be reassigned to another family.
 DROP POLICY IF EXISTS "Primary parent can update section responses" ON public.section_responses;
 CREATE POLICY "Primary parent can update section responses"
   ON public.section_responses FOR UPDATE
   USING (
-    EXISTS (
-      SELECT 1 FROM public.families
-      WHERE id = family_id AND primary_user_id = auth.uid()
+    member_id IN (
+      SELECT fm.id FROM public.family_members fm
+      JOIN public.families f ON f.id = fm.family_id
+      WHERE fm.family_id = section_responses.family_id
+        AND fm.type = 'parent'
+        AND f.primary_user_id = auth.uid()
     )
   )
   WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.families
-      WHERE id = family_id AND primary_user_id = auth.uid()
+    member_id IN (
+      SELECT fm.id FROM public.family_members fm
+      JOIN public.families f ON f.id = fm.family_id
+      WHERE fm.family_id = section_responses.family_id
+        AND fm.type = 'parent'
+        AND f.primary_user_id = auth.uid()
     )
   );
+
+-- No DELETE policy: primary parent cannot delete section responses via client API.
+-- Deletion is handled server-side only (service role). Cascade from family/member deletion handles cleanup.
 
 DROP TRIGGER IF EXISTS section_responses_updated_at ON public.section_responses;
 CREATE TRIGGER section_responses_updated_at
