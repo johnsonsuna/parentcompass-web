@@ -92,24 +92,26 @@ export interface SectionResponse {
   family_id: string;
   member_id: string;
   section_type: SectionType;
-  // Loose type intentional for raw DB reads. Use assertSectionResponseData() for
-  // type-safe discriminated access in API validation and AI synthesis.
+  // Loose type intentional for raw DB reads. Use assertKnownSectionType() for
+  // validated section_type narrowing before API validation and AI synthesis.
   responses: Record<string, string | string[] | number | boolean>;
   updated_at: string;
 }
 
 /**
- * Assert a raw DB row has a known section_type and return it with the type narrowed.
- * Throws TypeError on unknown section_type (stale DB data, schema drift).
+ * Assert that a raw DB row's section_type is a known SectionType value and return it narrowed.
+ * Throws TypeError on unknown values (stale DB data, schema drift).
  *
- * Return type is `SectionResponse & { section_type: SectionType }` — not the full
- * SectionResponseData discriminated union — because responses shape is NOT validated here.
- * Callers that need per-section typed responses (e.g. AI synthesis) must perform field-level
- * validation against the specific union member after narrowing on section_type.
+ * This function validates ONLY the section_type enum membership — NOT the responses shape.
+ * The return type reflects this: `SectionResponse & { section_type: SectionType }`, not the
+ * full SectionResponseData discriminated union. Callers that need per-section typed responses
+ * (e.g. AI synthesis in Phase 2D.4) must perform field-level validation after narrowing.
+ *
+ * Named "assertKnownSectionType" to make explicit that this is NOT a full structural validator.
  *
  * @see SectionResponseData for the per-section typed shapes.
  */
-export function assertSectionResponseData(r: SectionResponse): SectionResponse & { section_type: SectionType } {
+export function assertKnownSectionType(r: SectionResponse): SectionResponse & { section_type: SectionType } {
   if (!(SECTION_TYPES as readonly string[]).includes(r.section_type)) {
     throw new TypeError(`Unknown section_type: "${r.section_type}"`);
   }

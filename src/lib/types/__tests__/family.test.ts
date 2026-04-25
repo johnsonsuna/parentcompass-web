@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { assertSectionResponseData } from '../family';
+import { assertKnownSectionType } from '../family';
 import type { SectionResponse } from '../family';
 
-describe('assertSectionResponseData', () => {
+describe('assertKnownSectionType', () => {
   it('returns the same object with discriminated union typing', () => {
     const row: SectionResponse = {
       id: 'r1',
@@ -13,7 +13,7 @@ describe('assertSectionResponseData', () => {
       updated_at: '2026-04-25T00:00:00Z',
     };
 
-    const typed = assertSectionResponseData(row);
+    const typed = assertKnownSectionType(row);
     expect(typed.section_type).toBe('parent_goals');
     expect(typed.responses).toEqual(row.responses);
   });
@@ -28,7 +28,7 @@ describe('assertSectionResponseData', () => {
       updated_at: '2026-04-25T00:00:00Z',
     };
 
-    const typed = assertSectionResponseData(row);
+    const typed = assertKnownSectionType(row);
     expect(typed).toBe(row);
   });
 
@@ -42,7 +42,7 @@ describe('assertSectionResponseData', () => {
       updated_at: '2026-04-25T00:00:00Z',
     } as SectionResponse;
 
-    expect(() => assertSectionResponseData(row)).toThrow(TypeError);
-    expect(() => assertSectionResponseData(row)).toThrow('Unknown section_type: "unknown_section"');
+    expect(() => assertKnownSectionType(row)).toThrow(TypeError);
+    expect(() => assertKnownSectionType(row)).toThrow('Unknown section_type: "unknown_section"');
   });
 });

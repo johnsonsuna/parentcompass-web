@@ -3,8 +3,9 @@
 -- Run in Supabase SQL editor: supabase.com/dashboard/project/izezbdvrqzzerkukmyoy/sql
 -- Safe to re-run: TABLE/INDEX use IF NOT EXISTS; policies/triggers use DROP IF EXISTS first.
 
--- Schema-level usage grant — one-time setup.
+-- Schema-level usage grant — idempotent; also issued in earlier migrations.
 -- Grants schema visibility only; does NOT imply any table access.
+-- anon is included here for public endpoints; no table in this migration grants anon any DML.
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 
 -- ─────────────────────────────────────────────
@@ -44,12 +45,10 @@ CREATE POLICY "Primary parent can read own family"
   ON public.families FOR SELECT
   USING (auth.uid() = primary_user_id);
 
--- TODO Phase 2D.3: add a second SELECT policy for invited members once they get auth accounts:
---   CREATE POLICY "Family members can read own family" ON public.families FOR SELECT
---   USING (id IN (
---     SELECT family_id FROM public.family_members
---     WHERE invite_email = auth.jwt()->>'email' AND status = 'active'
---   ));
+-- TODO Phase 2D.3: add access for invited members.
+-- NOTE: invited members use magic-link tokens (no Supabase auth account), so auth.jwt()->>'email'
+-- will be null for them. Access must be granted server-side via service_role after token
+-- validation — do NOT implement as a client-side JWT email claim policy here.
 
 DROP POLICY IF EXISTS "Primary parent can insert own family" ON public.families;
 CREATE POLICY "Primary parent can insert own family"
@@ -84,7 +83,7 @@ CREATE TABLE IF NOT EXISTS public.family_members (
   status            TEXT        NOT NULL DEFAULT 'active'
                                 CHECK (status IN ('active', 'pending', 'declined')),
   -- invite_token: server-only secret. Min 32 chars enforced at DB level.
-  -- authenticated role has column-level SELECT excluding this column.
+  -- authenticated role has column-level grants excluding this column.
   invite_token      TEXT        UNIQUE
                                 CHECK (invite_token IS NULL OR length(invite_token) >= 32),
   invite_expires_at TIMESTAMPTZ,
@@ -158,16 +157,19 @@ CREATE POLICY "Primary parent can delete family members"
     )
   );
 
--- Column-level grants: invite_token is excluded from SELECT, INSERT, and UPDATE.
+-- Column-level grants: invite_token, invite_expires_at, and type excluded from UPDATE.
+-- invite_token: server-only secret — never readable or writable via authenticated role.
+-- invite_expires_at: invite expiry refresh is a server-side operation (service_role only).
+-- type: member type is immutable after creation; type changes require server-side validation.
 -- Column-level SELECT: excludes invite_token.
 -- Column-level INSERT: excludes invite_token, id (auto-generated), created_at (auto-set).
--- Column-level UPDATE: excludes invite_token, id (immutable PK), family_id (immutable FK), created_at.
+-- Column-level UPDATE: excludes invite_token, type, invite_expires_at, id, family_id, created_at.
 -- DELETE is table-level (no sensitive column exposure on DELETE).
 GRANT SELECT (id, family_id, type, display_name, invite_email, invite_expires_at, status, grade, created_at)
   ON public.family_members TO authenticated;
 GRANT INSERT (family_id, type, display_name, invite_email, status, grade)
   ON public.family_members TO authenticated;
-GRANT UPDATE (type, display_name, invite_email, status, grade, invite_expires_at)
+GRANT UPDATE (display_name, invite_email, status, grade)
   ON public.family_members TO authenticated;
 GRANT DELETE ON public.family_members TO authenticated;
 
@@ -190,7 +192,7 @@ GRANT SELECT ON public.family_members_safe TO service_role;
 
 -- ─────────────────────────────────────────────
 -- 3. section_responses
---    PRIVACY MODEL (Rule 11): Raw inputs are private to the contributor.
+--    PRIVACY MODEL: Raw inputs are private to the contributor.
 --    Primary parent reads their own responses via the client API.
 --    Spouse/student responses are read server-side (service role) for AI synthesis.
 -- ─────────────────────────────────────────────
@@ -215,8 +217,30 @@ CREATE INDEX IF NOT EXISTS idx_section_responses_family_member
 
 ALTER TABLE public.section_responses ENABLE ROW LEVEL SECURITY;
 
--- Phase 2D.1: primary parent reads only their own (type='parent') member's responses.
--- Rule 11: spouse/student raw inputs are never readable by the primary parent via client API.
+-- SECURITY DEFINER trigger: validates section_responses.family_id matches the member's family_id.
+-- An RLS-only check could be bypassed by supplying a valid family_id that belongs to the caller
+-- but a member_id from a different family they know about. The trigger enforces the cross-table
+-- consistency at the DB level on every INSERT regardless of RLS evaluation order.
+-- SET search_path = public prevents search_path hijacking.
+CREATE OR REPLACE FUNCTION public.check_section_response_member_family()
+  RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  IF (SELECT family_id FROM public.family_members WHERE id = NEW.member_id) IS DISTINCT FROM NEW.family_id THEN
+    RAISE EXCEPTION 'member_id % does not belong to family %', NEW.member_id, NEW.family_id;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.check_section_response_member_family() FROM PUBLIC;
+
+DROP TRIGGER IF EXISTS section_responses_check_member_family ON public.section_responses;
+CREATE TRIGGER section_responses_check_member_family
+  BEFORE INSERT ON public.section_responses
+  FOR EACH ROW EXECUTE FUNCTION public.check_section_response_member_family();
+
+-- Primary parent reads only their own (type='parent') member's responses.
+-- Spouse/student raw inputs are never readable by the primary parent via client API.
 -- Enforced here at the DB layer by scoping to the 'parent'-type member row for this family.
 DROP POLICY IF EXISTS "Primary parent can read own section responses" ON public.section_responses;
 DROP POLICY IF EXISTS "Members can read own section responses" ON public.section_responses;
@@ -232,8 +256,8 @@ CREATE POLICY "Primary parent can read own section responses"
     )
   );
 
--- INSERT: verify family ownership AND that member_id is the parent-type member for this family.
--- Rule 11: primary parent may only write their own (type='parent') section responses via client API.
+-- INSERT: restricted to the parent-type member only.
+-- Primary parent may only write their own (type='parent') section responses via client API.
 -- Spouse/student responses are written server-side (service role) — not through this policy.
 DROP POLICY IF EXISTS "Primary parent can insert section responses" ON public.section_responses;
 CREATE POLICY "Primary parent can insert section responses"
@@ -249,7 +273,8 @@ CREATE POLICY "Primary parent can insert section responses"
   );
 
 -- UPDATE: scope to parent-type member only, consistent with SELECT and INSERT.
--- WITH CHECK also restricts to parent member so family_id cannot be reassigned to another family.
+-- Column-level UPDATE grant (section_type, responses) excludes family_id and member_id,
+-- preventing a client from moving a response to a different family or member.
 DROP POLICY IF EXISTS "Primary parent can update section responses" ON public.section_responses;
 CREATE POLICY "Primary parent can update section responses"
   ON public.section_responses FOR UPDATE
@@ -280,14 +305,14 @@ CREATE TRIGGER section_responses_updated_at
   BEFORE UPDATE ON public.section_responses
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
--- UPDATE grant is column-level: family_id and member_id excluded to prevent row hijacking.
--- A column-level UPDATE grant prevents a malicious client from moving a response to another
--- family they own by changing family_id (which would satisfy WITH CHECK on the new row).
+-- UPDATE grant is column-level: excludes family_id and member_id to prevent row hijacking.
 GRANT SELECT, INSERT ON public.section_responses TO authenticated;
 GRANT UPDATE (section_type, responses) ON public.section_responses TO authenticated;
 
 -- ─────────────────────────────────────────────
 -- 4. roadmap_versions — immutable history, no DELETE policy.
+-- roadmap_versions has no updated_at: rows are immutable after INSERT (content/diff never patched).
+-- created_at is the only timestamp needed; adding updated_at would imply mutability.
 -- ─────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.roadmap_versions (
   id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -323,10 +348,8 @@ DROP POLICY IF EXISTS "Primary parent can insert roadmap versions" ON public.roa
 -- SECURITY DEFINER trigger: validates previous_version_id cross-family integrity on every INSERT.
 -- Uses SECURITY DEFINER so the subquery bypasses RLS — without it, rows from other families are
 -- invisible under RLS, making the subquery return NULL, which silently rejects valid checks and
--- allows probing other families' version IDs via NULL-vs-non-NULL timing differences.
--- SET search_path = public prevents search_path hijacking: without it, a malicious user
--- could create a schema earlier in the path with a spoofed roadmap_versions table,
--- causing the integrity check to pass on attacker-controlled data.
+-- could allow probing other families' version IDs via NULL-vs-non-NULL responses.
+-- SET search_path = public prevents search_path hijacking.
 CREATE OR REPLACE FUNCTION public.check_roadmap_previous_version()
   RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -342,6 +365,11 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+-- Revoke public execute: prevents anon/authenticated from calling the function directly
+-- to probe whether a UUID is a valid previous_version_id in any family.
+-- Triggers invoke the function through their own mechanism — no explicit EXECUTE grant needed.
+REVOKE EXECUTE ON FUNCTION public.check_roadmap_previous_version() FROM PUBLIC;
 
 DROP TRIGGER IF EXISTS roadmap_versions_check_previous ON public.roadmap_versions;
 CREATE TRIGGER roadmap_versions_check_previous
