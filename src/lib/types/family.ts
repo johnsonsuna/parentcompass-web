@@ -129,13 +129,4 @@ export interface RoadmapDiff {
   removedPriorities: string[];
 }
 
-// ─── Composite view ───────────────────────────────────────────────────────────
-
-// Full family context for the AI synthesis route (Phase 2D.4).
-// Built server-side using the Supabase service role. See family.server.ts.
-export interface FamilyContext {
-  family: Family;
-  members: FamilyMemberPublic[];
-  responses: SectionResponse[];
-  latestRoadmap: RoadmapVersion | null;
-}
+// FamilyContext lives in family.server.ts (server-only). Import from there in API routes.

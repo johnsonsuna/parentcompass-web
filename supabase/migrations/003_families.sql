@@ -54,6 +54,18 @@ CREATE POLICY "Primary parent can update own family"
 
 -- No DELETE policy: family deletion is handled server-side via the auth.users cascade.
 
+-- Invited members (spouse/student) who accept an invite and receive a Supabase
+-- auth account (Phase 2D.3) must also be able to read the family record.
+-- Phase 2D.1 scope: primary parent only. Extend in Phase 2D.3 once invite
+-- acceptance creates auth.users rows for invitees.
+-- TODO Phase 2D.3: add policy:
+--   CREATE POLICY "Family members can read own family"
+--     ON public.families FOR SELECT
+--     USING (id IN (
+--       SELECT family_id FROM public.family_members
+--       WHERE invite_email = auth.jwt()->>'email' AND status = 'active'
+--     ));
+
 GRANT SELECT, INSERT, UPDATE ON public.families TO authenticated;
 
 CREATE TRIGGER families_updated_at
