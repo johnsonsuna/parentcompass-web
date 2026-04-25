@@ -20,3 +20,7 @@ CREATE POLICY "Users can read own roadmap"
 CREATE POLICY "Users can insert own roadmap"
   ON public.roadmaps FOR INSERT
   WITH CHECK (auth.uid() = user_id);
+
+-- Grant table-level permissions to Supabase roles (required alongside RLS policies)
+GRANT SELECT, INSERT ON public.roadmaps TO anon, authenticated;
+GRANT USAGE ON SCHEMA public TO anon, authenticated;

@@ -69,6 +69,7 @@ export const POST: APIRoute = async ({ locals }) => {
           headers: { 'Content-Type': 'application/json' },
         });
       }
+      console.error('[generate-roadmap] Supabase INSERT error:', dbError.code, dbError.message, dbError.details);
       return new Response(JSON.stringify({ error: 'Failed to save roadmap' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
