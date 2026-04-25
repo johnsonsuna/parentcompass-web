@@ -1,14 +1,15 @@
 -- ParentCompass: Family data model
 -- Phase 2D.1 — creates families, family_members, section_responses, roadmap_versions
 -- Run in Supabase SQL editor: supabase.com/dashboard/project/izezbdvrqzzerkukmyoy/sql
+-- Safe to re-run: TABLE/INDEX use IF NOT EXISTS; policies/triggers use DROP IF EXISTS first.
 
--- Schema-level usage grant — placed once at the top.
+-- Schema-level usage grant — one-time setup.
 -- Grants schema visibility only; does NOT imply any table access.
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 
 -- ─────────────────────────────────────────────
 -- Shared trigger function: auto-updates updated_at columns.
--- CREATE OR REPLACE is intentional — safe to re-run, idempotent by design.
+-- CREATE OR REPLACE is intentional — idempotent by design.
 -- ─────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.set_updated_at()
   RETURNS TRIGGER LANGUAGE plpgsql AS $$
@@ -38,15 +39,25 @@ CREATE INDEX IF NOT EXISTS idx_families_primary_user_id
 
 ALTER TABLE public.families ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Primary parent can read own family" ON public.families;
 CREATE POLICY "Primary parent can read own family"
   ON public.families FOR SELECT
   USING (auth.uid() = primary_user_id);
 
+-- TODO Phase 2D.3: add a second SELECT policy for invited members once they get auth accounts:
+--   CREATE POLICY "Family members can read own family" ON public.families FOR SELECT
+--   USING (id IN (
+--     SELECT family_id FROM public.family_members
+--     WHERE invite_email = auth.jwt()->>'email' AND status = 'active'
+--   ));
+
+DROP POLICY IF EXISTS "Primary parent can insert own family" ON public.families;
 CREATE POLICY "Primary parent can insert own family"
   ON public.families FOR INSERT
   WITH CHECK (auth.uid() = primary_user_id);
 
 -- WITH CHECK prevents changing primary_user_id to another user's uid (family hijacking).
+DROP POLICY IF EXISTS "Primary parent can update own family" ON public.families;
 CREATE POLICY "Primary parent can update own family"
   ON public.families FOR UPDATE
   USING (auth.uid() = primary_user_id)
@@ -54,20 +65,9 @@ CREATE POLICY "Primary parent can update own family"
 
 -- No DELETE policy: family deletion is handled server-side via the auth.users cascade.
 
--- Invited members (spouse/student) who accept an invite and receive a Supabase
--- auth account (Phase 2D.3) must also be able to read the family record.
--- Phase 2D.1 scope: primary parent only. Extend in Phase 2D.3 once invite
--- acceptance creates auth.users rows for invitees.
--- TODO Phase 2D.3: add policy:
---   CREATE POLICY "Family members can read own family"
---     ON public.families FOR SELECT
---     USING (id IN (
---       SELECT family_id FROM public.family_members
---       WHERE invite_email = auth.jwt()->>'email' AND status = 'active'
---     ));
-
 GRANT SELECT, INSERT, UPDATE ON public.families TO authenticated;
 
+DROP TRIGGER IF EXISTS families_updated_at ON public.families;
 CREATE TRIGGER families_updated_at
   BEFORE UPDATE ON public.families
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
@@ -84,16 +84,14 @@ CREATE TABLE IF NOT EXISTS public.family_members (
   status            TEXT        NOT NULL DEFAULT 'active'
                                 CHECK (status IN ('active', 'pending', 'declined')),
   -- invite_token: server-only secret. Min 32 chars enforced at DB level.
-  -- Never expose in client responses — authenticated role has no SELECT grant
-  -- on this column. Use family_members_safe view for client-facing queries.
+  -- authenticated role has column-level SELECT excluding this column.
   invite_token      TEXT        UNIQUE
                                 CHECK (invite_token IS NULL OR length(invite_token) >= 32),
   invite_expires_at TIMESTAMPTZ,
   -- Pending members (with invite_token) must have an expiry set.
   CONSTRAINT invite_token_requires_expiry
     CHECK (invite_token IS NULL OR invite_expires_at IS NOT NULL),
-  -- Primary parent member is always active with no invite.
-  -- status is declared above so this constraint is valid.
+  -- Primary parent member is always active with no invite (status declared above).
   CONSTRAINT parent_type_always_active
     CHECK (type != 'parent' OR (invite_token IS NULL AND status = 'active')),
   -- grade: US high school grades (9-12). NULL for parent/spouse and non-US-track students.
@@ -106,6 +104,7 @@ CREATE INDEX IF NOT EXISTS idx_family_members_family_id
 
 ALTER TABLE public.family_members ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Primary parent can read own family members" ON public.family_members;
 CREATE POLICY "Primary parent can read own family members"
   ON public.family_members FOR SELECT
   USING (
@@ -115,6 +114,7 @@ CREATE POLICY "Primary parent can read own family members"
     )
   );
 
+DROP POLICY IF EXISTS "Primary parent can insert family members" ON public.family_members;
 CREATE POLICY "Primary parent can insert family members"
   ON public.family_members FOR INSERT
   WITH CHECK (
@@ -124,6 +124,8 @@ CREATE POLICY "Primary parent can insert family members"
     )
   );
 
+-- WITH CHECK prevents moving a member to a different family.
+DROP POLICY IF EXISTS "Primary parent can update family members" ON public.family_members;
 CREATE POLICY "Primary parent can update family members"
   ON public.family_members FOR UPDATE
   USING (
@@ -131,8 +133,15 @@ CREATE POLICY "Primary parent can update family members"
       SELECT 1 FROM public.families
       WHERE id = family_id AND primary_user_id = auth.uid()
     )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.families
+      WHERE id = family_id AND primary_user_id = auth.uid()
+    )
   );
 
+DROP POLICY IF EXISTS "Primary parent can delete family members" ON public.family_members;
 CREATE POLICY "Primary parent can delete family members"
   ON public.family_members FOR DELETE
   USING (
@@ -142,25 +151,24 @@ CREATE POLICY "Primary parent can delete family members"
     )
   );
 
--- Column-level SELECT grant: excludes invite_token. authenticated can read all
--- columns except invite_token. INSERT/UPDATE/DELETE on the base table are table-level.
+-- Column-level SELECT grant: authenticated role cannot SELECT invite_token.
+-- INSERT/UPDATE/DELETE are table-level grants.
 GRANT SELECT (id, family_id, type, display_name, invite_email, invite_expires_at, status, grade, created_at)
   ON public.family_members TO authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.family_members TO authenticated;
 
--- Security-barrier view: convenient alias for client-facing queries.
--- Mirrors the column-level grant above; use this in all API SELECT queries.
-CREATE VIEW public.family_members_safe WITH (security_barrier = true) AS
+-- Security-barrier view: convenience alias for client-facing queries.
+-- No direct SELECT grant to authenticated — client queries use column-level grant above.
+-- Use this view in server-side RLS subqueries and service-role contexts.
+CREATE OR REPLACE VIEW public.family_members_safe WITH (security_barrier = true) AS
   SELECT id, family_id, type, display_name, invite_email,
          invite_expires_at, status, grade, created_at
   FROM public.family_members;
 
-GRANT SELECT ON public.family_members_safe TO authenticated;
-
 -- ─────────────────────────────────────────────
 -- 3. section_responses
 --    PRIVACY MODEL (Rule 11): Raw inputs are private to the contributor.
---    Primary parent reads only their own responses via the client API.
+--    Primary parent reads their own responses via the client API.
 --    Spouse/student responses are read server-side (service role) for AI synthesis.
 -- ─────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.section_responses (
@@ -178,20 +186,21 @@ CREATE INDEX IF NOT EXISTS idx_section_responses_family_member
 
 ALTER TABLE public.section_responses ENABLE ROW LEVEL SECURITY;
 
--- Parent reads only their own (type='parent') responses.
--- Uses family_members_safe view so invite_token is never visible in the subquery.
-CREATE POLICY "Members can read own section responses"
+-- Phase 2D.1: primary parent reads their own section responses only.
+-- member_id scoping for spouse/student added in Phase 2D.3.
+DROP POLICY IF EXISTS "Primary parent can read own section responses" ON public.section_responses;
+DROP POLICY IF EXISTS "Members can read own section responses" ON public.section_responses;
+CREATE POLICY "Primary parent can read own section responses"
   ON public.section_responses FOR SELECT
   USING (
     EXISTS (
-      SELECT 1 FROM public.family_members_safe fms
-      JOIN public.families f ON f.id = fms.family_id
-      WHERE fms.id = member_id
-        AND f.primary_user_id = auth.uid()
-        AND fms.type = 'parent'
+      SELECT 1 FROM public.families
+      WHERE id = family_id AND primary_user_id = auth.uid()
     )
   );
 
+-- INSERT: verify both family ownership AND that member_id belongs to this family.
+DROP POLICY IF EXISTS "Primary parent can insert section responses" ON public.section_responses;
 CREATE POLICY "Primary parent can insert section responses"
   ON public.section_responses FOR INSERT
   WITH CHECK (
@@ -199,8 +208,14 @@ CREATE POLICY "Primary parent can insert section responses"
       SELECT 1 FROM public.families
       WHERE id = family_id AND primary_user_id = auth.uid()
     )
+    AND EXISTS (
+      SELECT 1 FROM public.family_members
+      WHERE id = member_id AND family_id = section_responses.family_id
+    )
   );
 
+-- UPDATE: WITH CHECK prevents reassigning family_id to a different family.
+DROP POLICY IF EXISTS "Primary parent can update section responses" ON public.section_responses;
 CREATE POLICY "Primary parent can update section responses"
   ON public.section_responses FOR UPDATE
   USING (
@@ -208,8 +223,15 @@ CREATE POLICY "Primary parent can update section responses"
       SELECT 1 FROM public.families
       WHERE id = family_id AND primary_user_id = auth.uid()
     )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.families
+      WHERE id = family_id AND primary_user_id = auth.uid()
+    )
   );
 
+DROP TRIGGER IF EXISTS section_responses_updated_at ON public.section_responses;
 CREATE TRIGGER section_responses_updated_at
   BEFORE UPDATE ON public.section_responses
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
@@ -234,6 +256,7 @@ CREATE TABLE IF NOT EXISTS public.roadmap_versions (
 
 ALTER TABLE public.roadmap_versions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Primary parent can read own roadmap versions" ON public.roadmap_versions;
 CREATE POLICY "Primary parent can read own roadmap versions"
   ON public.roadmap_versions FOR SELECT
   USING (
@@ -243,12 +266,21 @@ CREATE POLICY "Primary parent can read own roadmap versions"
     )
   );
 
+-- INSERT: verify family ownership AND that previous_version_id (if set) belongs to same family.
+DROP POLICY IF EXISTS "Primary parent can insert roadmap versions" ON public.roadmap_versions;
 CREATE POLICY "Primary parent can insert roadmap versions"
   ON public.roadmap_versions FOR INSERT
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM public.families
       WHERE id = family_id AND primary_user_id = auth.uid()
+    )
+    AND (
+      previous_version_id IS NULL
+      OR EXISTS (
+        SELECT 1 FROM public.roadmap_versions rv
+        WHERE rv.id = previous_version_id AND rv.family_id = roadmap_versions.family_id
+      )
     )
   );
 
