@@ -102,6 +102,10 @@ CREATE TABLE IF NOT EXISTS public.family_members (
 CREATE INDEX IF NOT EXISTS idx_family_members_family_id
   ON public.family_members(family_id);
 
+-- Partial index for Phase 2D.3 invite-email-based RLS policy lookups.
+CREATE INDEX IF NOT EXISTS idx_family_members_invite_email
+  ON public.family_members(invite_email) WHERE invite_email IS NOT NULL;
+
 ALTER TABLE public.family_members ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Primary parent can read own family members" ON public.family_members;
@@ -157,13 +161,17 @@ GRANT SELECT (id, family_id, type, display_name, invite_email, invite_expires_at
   ON public.family_members TO authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.family_members TO authenticated;
 
--- Security-barrier view: convenience alias for client-facing queries.
--- No direct SELECT grant to authenticated — client queries use column-level grant above.
--- Use this view in server-side RLS subqueries and service-role contexts.
+-- Security-barrier view: service_role-only alias excluding invite_token.
+-- Client queries use the column-level grant on the base table above.
 CREATE OR REPLACE VIEW public.family_members_safe WITH (security_barrier = true) AS
   SELECT id, family_id, type, display_name, invite_email,
          invite_expires_at, status, grade, created_at
   FROM public.family_members;
+
+-- Explicitly restrict access: this view is service_role only.
+REVOKE ALL ON public.family_members_safe FROM PUBLIC;
+REVOKE ALL ON public.family_members_safe FROM authenticated;
+GRANT SELECT ON public.family_members_safe TO service_role;
 
 -- ─────────────────────────────────────────────
 -- 3. section_responses
@@ -186,16 +194,20 @@ CREATE INDEX IF NOT EXISTS idx_section_responses_family_member
 
 ALTER TABLE public.section_responses ENABLE ROW LEVEL SECURITY;
 
--- Phase 2D.1: primary parent reads their own section responses only.
--- member_id scoping for spouse/student added in Phase 2D.3.
+-- Phase 2D.1: primary parent reads only their own (type='parent') member's responses.
+-- Rule 11: spouse/student raw inputs are never readable by the primary parent via client API.
+-- Enforced here at the DB layer by scoping to the 'parent'-type member row for this family.
 DROP POLICY IF EXISTS "Primary parent can read own section responses" ON public.section_responses;
 DROP POLICY IF EXISTS "Members can read own section responses" ON public.section_responses;
 CREATE POLICY "Primary parent can read own section responses"
   ON public.section_responses FOR SELECT
   USING (
-    EXISTS (
-      SELECT 1 FROM public.families
-      WHERE id = family_id AND primary_user_id = auth.uid()
+    member_id IN (
+      SELECT fm.id FROM public.family_members fm
+      JOIN public.families f ON f.id = fm.family_id
+      WHERE fm.family_id = section_responses.family_id
+        AND fm.type = 'parent'
+        AND f.primary_user_id = auth.uid()
     )
   );
 
@@ -277,10 +289,7 @@ CREATE POLICY "Primary parent can insert roadmap versions"
     )
     AND (
       previous_version_id IS NULL
-      OR EXISTS (
-        SELECT 1 FROM public.roadmap_versions rv
-        WHERE rv.id = previous_version_id AND rv.family_id = roadmap_versions.family_id
-      )
+      OR (SELECT family_id FROM public.roadmap_versions WHERE id = previous_version_id) = family_id
     )
   );
 

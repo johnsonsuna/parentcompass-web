@@ -89,10 +89,18 @@ export interface SectionResponse {
   family_id: string;
   member_id: string;
   section_type: SectionType;
-  // Loose type intentional for raw DB reads. Use SectionResponseData discriminated
-  // union for type-safe access in API validation and AI synthesis prompt building.
+  // Loose type intentional for raw DB reads. Use asSectionResponseData() for
+  // type-safe discriminated access in API validation and AI synthesis.
   responses: Record<string, string | string[] | number | boolean>;
   updated_at: string;
+}
+
+/**
+ * Cast a raw DB row to the discriminated union for type-safe field access.
+ * @see SectionResponseData for the per-section typed shapes.
+ */
+export function asSectionResponseData(r: SectionResponse): SectionResponseData {
+  return r as unknown as SectionResponseData;
 }
 
 // ─── Roadmap versions ─────────────────────────────────────────────────────────
