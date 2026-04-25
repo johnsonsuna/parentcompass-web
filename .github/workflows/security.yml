@@ -3,6 +3,8 @@ name: Security & Privacy
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
 
 jobs:
   secrets-scan:
@@ -81,3 +83,14 @@ jobs:
             echo "WARNING: CSRF cookie set without httpOnly in one of the page files — verify manually."
           fi
           echo "CSRF cookie flags checked ✓"
+
+  migration-check:
+    name: Migration Safety Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate new migration files have RLS and GRANTs
+        run: bash scripts/check-migrations.sh
